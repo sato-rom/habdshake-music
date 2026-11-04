@@ -222,36 +222,37 @@
       font-size: 1rem;
     }
 
-    /* 🎚️ スライダーを大きく扱いやすく修正 */
+    /* 🎚️ 滑らかな大型タッチスライダー */
     input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
       flex: 1;
-      height: 12px;
+      height: 16px;
       background: #0f172a;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid #475569;
       outline: none;
+      touch-action: none; /* 指の引っ掛かりをなくす */
     }
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: #38bdf8;
       cursor: pointer;
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
     }
 
     input[type="range"]::-moz-range-thumb {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: #38bdf8;
       cursor: pointer;
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
       border: none;
     }
 
@@ -274,8 +275,8 @@
     }
 
     .section-title input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
     }
 
     .range-group {
@@ -400,6 +401,7 @@
     let currentAudio = null;
     let fadeOutTimeout = null;
     let activeAudioContext = null;
+    let updateTimer = null;
     const audioCache = new Map();
     const trackDurations = new Map();
 
@@ -598,6 +600,11 @@
     });
 
     function renderSettingsList() {
+      // スライダー操作中は画面を再描画せずにカクつきを防ぐ
+      if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'range') {
+        return;
+      }
+
       const container = document.getElementById('trackList');
       container.innerHTML = '';
 
@@ -634,19 +641,17 @@
               <div class="range-group">
                 <div class="range-label">
                   <span>開始位置:</span>
-                  <span class="val">${formatTime(startVal)}</span>
+                  <span class="val" id="disp_start_${track.id}_${sIdx}">${formatTime(startVal)}</span>
                 </div>
-                <!-- ⭕ 0.01秒刻みで細密調整 -->
-                <input type="range" min="0" max="${maxDuration}" step="0.01" value="${startVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="startTotalSec">
+                <input type="range" min="0" max="${maxDuration}" step="0.05" value="${startVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="startTotalSec">
               </div>
 
               <div class="range-group">
                 <div class="range-label">
                   <span>終了位置:</span>
-                  <span class="val">${formatTime(endVal)}</span>
+                  <span class="val" id="disp_end_${track.id}_${sIdx}">${formatTime(endVal)}</span>
                 </div>
-                <!-- ⭕ 0.01秒刻みで細密調整 -->
-                <input type="range" min="0" max="${maxDuration}" step="0.01" value="${endVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="endTotalSec">
+                <input type="range" min="0" max="${maxDuration}" step="0.05" value="${endVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="endTotalSec">
               </div>
             </div>
           `;
@@ -679,19 +684,16 @@
             <input type="number" min="40" max="240" value="${track.bpm || 120}" class="bpm-input" data-id="${track.id}" style="width:65px; text-align:center;">
           </div>
 
-          <!-- 音量バランス調整バー (1%刻み) -->
           <div class="volume-box">
             <div class="slider-row">
               <label>🗣️ カウント音量</label>
-              <!-- ⭕ step="0.01" で1%刻みに調整可能 -->
               <input type="range" min="0" max="1" step="0.01" value="${currentCountVol}" class="vol-input" data-id="${track.id}" data-key="countVol">
-              <span style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentCountVol * 100)}%</span>
+              <span class="val-text" id="disp_vol_countVol_${track.id}" style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentCountVol * 100)}%</span>
             </div>
             <div class="slider-row">
               <label>🎵 音源（曲）音量</label>
-              <!-- ⭕ step="0.01" で1%刻みに調整可能 -->
               <input type="range" min="0" max="1" step="0.01" value="${currentMusicVol}" class="vol-input" data-id="${track.id}" data-key="musicVol">
-              <span style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentMusicVol * 100)}%</span>
+              <span class="val-text" id="disp_vol_musicVol_${track.id}" style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentMusicVol * 100)}%</span>
             </div>
           </div>
 
@@ -715,27 +717,45 @@
       });
 
       container.querySelectorAll('.count-mode-select').forEach(sel => {
-        sel.addEventListener('change', (e) => {
-          updateTrackField(e.target.dataset.id, 'countMode', e.target.value);
-        });
+        sel.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'countMode', e.target.value));
       });
 
       container.querySelectorAll('.count-voice-select').forEach(sel => {
-        sel.addEventListener('change', (e) => {
-          updateTrackField(e.target.dataset.id, 'countVoice', e.target.value);
-        });
+        sel.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'countVoice', e.target.value));
       });
 
       container.querySelectorAll('.bpm-input').forEach(input => {
-        input.addEventListener('change', (e) => {
-          updateTrackField(e.target.dataset.id, 'bpm', parseInt(e.target.value) || 120);
-        });
+        input.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'bpm', parseInt(e.target.value) || 120));
       });
 
+      // 滑らかな音量操作（指を動かしている時は画面の数値だけ超高速更新）
       container.querySelectorAll('.vol-input').forEach(input => {
         input.addEventListener('input', (e) => {
           const { id, key } = e.target.dataset;
-          updateTrackField(id, key, parseFloat(e.target.value));
+          const val = parseFloat(e.target.value);
+          const disp = document.getElementById(`disp_vol_${key}_${id}`);
+          if (disp) disp.textContent = `${Math.round(val * 100)}%`;
+
+          clearTimeout(updateTimer);
+          updateTimer = setTimeout(() => updateTrackField(id, key, val), 200);
+        });
+      });
+
+      // 滑らかな秒数操作（指を動かしている時は画面の数値だけ超高速更新）
+      container.querySelectorAll('.sec-range-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const { id, sidx, key } = e.target.dataset;
+          const val = parseFloat(e.target.value);
+          const labelType = key === 'startTotalSec' ? 'start' : 'end';
+          const disp = document.getElementById(`disp_${labelType}_${id}_${sidx}`);
+          if (disp) disp.textContent = formatTime(val);
+
+          const track = audioFiles.find(t => t.id === id);
+          if (track && track.sections && track.sections[sidx]) {
+            track.sections[sidx][key] = val;
+            clearTimeout(updateTimer);
+            updateTimer = setTimeout(() => updateTrackField(id, 'sections', track.sections), 200);
+          }
         });
       });
 
@@ -745,17 +765,6 @@
           const track = audioFiles.find(t => t.id === id);
           if (track && track.sections && track.sections[sidx]) {
             track.sections[sidx].active = e.target.checked;
-            updateTrackField(id, 'sections', track.sections);
-          }
-        });
-      });
-
-      container.querySelectorAll('.sec-range-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-          const { id, sidx, key } = e.target.dataset;
-          const track = audioFiles.find(t => t.id === id);
-          if (track && track.sections && track.sections[sidx]) {
-            track.sections[sidx][key] = parseFloat(e.target.value);
             updateTrackField(id, 'sections', track.sections);
           }
         });
