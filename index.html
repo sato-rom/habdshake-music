@@ -344,7 +344,6 @@
     let activeAudioContext = null;
     const audioCache = new Map();
 
-    // 音声プリロード処理
     function preloadAudio(url) {
       if (!url || audioCache.has(url)) return;
       const audio = new Audio();
@@ -354,18 +353,18 @@
       audioCache.set(url, audio);
     }
 
-    // カウント音生成（電子音または音声読み上げ）
+    // カウント音の確実な生成・再生処理
     function triggerCountAudio(countMode, countVoice, bpm, callback) {
-      if (countMode === 'off') {
+      if (!countMode || countMode === 'off') {
         callback();
         return;
       }
 
-      const beatInterval = 60 / bpm;
+      const beatInterval = 60 / (bpm || 120);
 
       if (countVoice === 'voice' && 'speechSynthesis' in window) {
-        // 音声読み上げによるカウントダウン (5, 6, 7, 8 または 1, 2, 3, 4)
-        const counts = (countMode === '4beat') ? ['1', '2', '3', '4'] : ['5', '6', '7', '8'];
+        window.speechSynthesis.cancel();
+        const counts = (countMode === '8beat') ? ['5', '6', '7', '8'] : ['1', '2', '3', '4'];
         let idx = 0;
 
         const speakNext = () => {
@@ -375,16 +374,27 @@
           }
           const uttr = new SpeechSynthesisUtterance(counts[idx]);
           uttr.lang = 'en-US';
-          uttr.rate = Math.min(2, bpm / 100);
-          uttr.pitch = (idx === counts.length - 1) ? 1.3 : 1.0;
+          uttr.rate = Math.min(2, Math.max(0.8, bpm / 120));
+          
+          uttr.onend = () => {
+            idx++;
+            if (idx < counts.length) {
+              setTimeout(speakNext, Math.max(0, (beatInterval * 1000) - 150));
+            } else {
+              callback();
+            }
+          };
 
-          speechSynthesis.speak(uttr);
-          idx++;
-          setTimeout(speakNext, beatInterval * 1000);
+          uttr.onerror = () => {
+            idx++;
+            speakNext();
+          };
+
+          window.speechSynthesis.speak(uttr);
         };
         speakNext();
       } else {
-        // Web Audio API によるビープ音カウント
+        // 電子音ビープカウント
         try {
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
           const ctx = new AudioCtx();
@@ -401,13 +411,13 @@
             const startTime = now + (i * beatInterval);
 
             gain.gain.setValueAtTime(0.3, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
 
             osc.connect(gain);
             gain.connect(ctx.destination);
 
             osc.start(startTime);
-            osc.stop(startTime + 0.1);
+            osc.stop(startTime + 0.08);
           }
 
           setTimeout(() => {
@@ -423,7 +433,6 @@
       }
     }
 
-    // タブ切り替え
     function switchTab(tabName) {
       const tabMain = document.getElementById('tabMain');
       const tabSettings = document.getElementById('tabSettings');
@@ -447,7 +456,6 @@
     document.getElementById('tabMain').addEventListener('click', () => switchTab('main'));
     document.getElementById('tabSettings').addEventListener('click', () => switchTab('settings'));
 
-    // Dropbox URL変換
     function convertToDirectLink(url) {
       if (!url) return "";
       let cleanUrl = url.trim();
@@ -457,7 +465,6 @@
       return cleanUrl;
     }
 
-    // クラウドリアルタイム同期
     const tracksDbRef = ref(db, "tracks");
     onValue(tracksDbRef, (snapshot) => {
       const data = snapshot.val();
@@ -479,7 +486,6 @@
       document.getElementById('statusText').textContent = '⚠️ 接続エラー: ' + error.message;
     });
 
-    // 曲の追加処理
     document.getElementById('addTrackBtn').addEventListener('click', async () => {
       const nameInput = document.getElementById("trackNameInput");
       const urlInput = document.getElementById("trackUrlInput");
@@ -518,7 +524,6 @@
       }
     });
 
-    // 設定リスト描画
     function renderSettingsList() {
       const container = document.getElementById('trackList');
       container.innerHTML = '';
@@ -526,6 +531,9 @@
       audioFiles.forEach((track, index) => {
         const item = document.createElement('div');
         item.className = 'track-item';
+
+        const currentCountMode = track.countMode !== undefined ? track.countMode : '4beat';
+        const currentCountVoice = track.countVoice !== undefined ? track.countVoice : 'beep';
 
         let sections = track.sections;
         if (!sections || !Array.isArray(sections)) {
@@ -567,14 +575,14 @@
           <div class="config-row">
             <span>⏱️ カウント設定:</span>
             <select class="count-mode-select" data-id="${track.id}">
-              <option value="off" ${track.countMode === 'off' ? 'selected' : ''}>なし (即再生)</option>
-              <option value="4beat" ${(!track.countMode || track.countMode === '4beat') ? 'selected' : ''}>4拍カウント</option>
-              <option value="8beat" ${track.countMode === '8beat' ? 'selected' : ''}>8拍カウント</option>
+              <option value="off" ${currentCountMode === 'off' ? 'selected' : ''}>なし (即再生)</option>
+              <option value="4beat" ${currentCountMode === '4beat' ? 'selected' : ''}>4拍カウント</option>
+              <option value="8beat" ${currentCountMode === '8beat' ? 'selected' : ''}>8拍カウント</option>
             </select>
 
             <select class="count-voice-select" data-id="${track.id}">
-              <option value="beep" ${(!track.countVoice || track.countVoice === 'beep') ? 'selected' : ''}>電子音 (ピッ)</option>
-              <option value="voice" ${track.countVoice === 'voice' ? 'selected' : ''}>ボイス (英語)</option>
+              <option value="beep" ${currentCountVoice === 'beep' ? 'selected' : ''}>電子音 (ピッ)</option>
+              <option value="voice" ${currentCountVoice === 'voice' ? 'selected' : ''}>ボイス (英語)</option>
             </select>
 
             <span style="margin-left:auto;">BPM:</span>
@@ -596,7 +604,6 @@
         container.appendChild(item);
       });
 
-      // イベント割り当て
       container.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => removeTrack(e.target.dataset.id));
       });
@@ -707,7 +714,7 @@
         activeAudioContext.close();
         activeAudioContext = null;
       }
-      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -749,8 +756,8 @@
 
       const statusEl = document.getElementById('statusText');
       const bpm = track.bpm || 120;
-      const countMode = track.countMode || '4beat';
-      const countVoice = track.countVoice || 'beep';
+      const countMode = track.countMode !== undefined ? track.countMode : '4beat';
+      const countVoice = track.countVoice !== undefined ? track.countVoice : 'beep';
 
       if (countMode !== 'off') {
         statusEl.textContent = `⏱️ カウント中 (${countMode === '8beat' ? '8拍' : '4拍'}, BPM: ${bpm})...`;
