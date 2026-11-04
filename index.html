@@ -222,7 +222,6 @@
       font-size: 1rem;
     }
 
-    /* 🎚️ 滑らかな大型タッチスライダー */
     input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
@@ -232,7 +231,7 @@
       border-radius: 8px;
       border: 1px solid #475569;
       outline: none;
-      touch-action: none; /* 指の引っ掛かりをなくす */
+      touch-action: none;
     }
 
     input[type="range"]::-webkit-slider-thumb {
@@ -344,6 +343,16 @@
       font-size: 0.85rem;
       cursor: pointer;
     }
+
+    .edit-status-badge {
+      font-size: 0.85rem;
+      color: #10b981;
+      background: #064e3b;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-left: 8px;
+    }
   </style>
 </head>
 <body>
@@ -398,24 +407,95 @@
     const db = getDatabase(app, firebaseConfig.databaseURL);
 
     let audioFiles = [];
-    let currentAudio = null;
+    let currentAudioSource = null;
     let fadeOutTimeout = null;
-    let activeAudioContext = null;
+    let audioCtx = null;
     let updateTimer = null;
-    const audioCache = new Map();
+    const decodedAudioBuffers = new Map();
+    const joinedAudioBuffers = new Map();
     const trackDurations = new Map();
 
-    function preloadAudio(url) {
-      if (!url || audioCache.has(url)) return;
-      const audio = new Audio();
-      audio.crossOrigin = "anonymous";
-      audio.preload = "auto";
-      audio.src = url;
-      audio.onloadedmetadata = () => {
-        trackDurations.set(url, audio.duration || 180);
-        renderSettingsList();
-      };
-      audioCache.set(url, audio);
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtx();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // 🎵 音源のフェッチ＆デコード（キャッシュ処理）
+    async function fetchAndDecodeAudio(url) {
+      if (decodedAudioBuffers.has(url)) return decodedAudioBuffers.get(url);
+
+      const ctx = getAudioContext();
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      
+      decodedAudioBuffers.set(url, audioBuffer);
+      trackDurations.set(url, audioBuffer.duration);
+      return audioBuffer;
+    }
+
+    // ✂️ アプリ内「カウント音合成（結合）エンジン」
+    async function generateCombinedBuffer(track) {
+      const cacheKey = `${track.id}_${track.bpm}_${track.countMode}_${track.countVol}_${track.musicVol}`;
+      if (joinedAudioBuffers.has(cacheKey)) {
+        return joinedAudioBuffers.get(cacheKey);
+      }
+
+      const origBuffer = await fetchAndDecodeAudio(track.url);
+      const ctx = getAudioContext();
+      const sampleRate = origBuffer.sampleRate;
+      const bpm = track.bpm || 120;
+      const countMode = track.countMode || '4beat';
+      const countVol = track.countVol !== undefined ? track.countVol : 1.0;
+      const musicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
+
+      if (countMode === 'off') {
+        joinedAudioBuffers.set(cacheKey, { buffer: origBuffer, countOffset: 0 });
+        return { buffer: origBuffer, countOffset: 0 };
+      }
+
+      const numBeats = (countMode === '8beat') ? 8 : 4;
+      const beatDurationSec = 60 / bpm;
+      const totalCountDurationSec = beatDurationSec * numBeats;
+      const countSamples = Math.floor(totalCountDurationSec * sampleRate);
+
+      const combinedLength = countSamples + origBuffer.length;
+      const combinedBuffer = ctx.createBuffer(origBuffer.numberOfChannels, combinedLength, sampleRate);
+
+      // カウント音波形データの動的生成
+      for (let channel = 0; channel < combinedBuffer.numberOfChannels; channel++) {
+        const outputData = combinedBuffer.getChannelData(channel);
+        const origData = origBuffer.getChannelData(channel);
+
+        // 1. カウント音を生成して先頭トラックに合成
+        for (let b = 0; b < numBeats; b++) {
+          const beatStartSample = Math.floor(b * beatDurationSec * sampleRate);
+          const freq = (b === numBeats - 1) ? 1200 : 800; // 最終拍のみ高音
+          const toneDurationSamples = Math.floor(0.08 * sampleRate);
+
+          for (let i = 0; i < toneDurationSamples; i++) {
+            const t = i / sampleRate;
+            const envelope = Math.exp(-i / (0.02 * sampleRate)); // エンベロープ衰退
+            const val = Math.sin(2 * Math.PI * freq * t) * 0.3 * countVol * envelope;
+            outputData[beatStartSample + i] = val;
+          }
+        }
+
+        // 2. 元の曲データをカウント直後からそのまま結合
+        for (let i = 0; i < origData.length; i++) {
+          outputData[countSamples + i] = origData[i] * musicVol;
+        }
+      }
+
+      const result = { buffer: combinedBuffer, countOffset: totalCountDurationSec };
+      joinedAudioBuffers.set(cacheKey, result);
+      return result;
     }
 
     function formatTime(seconds) {
@@ -424,86 +504,6 @@
       const s = Math.floor(seconds % 60);
       const ms = Math.floor((seconds % 1) * 100);
       return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
-    }
-
-    function triggerCountAudio(countMode, countVoice, bpm, countVol, callback) {
-      if (!countMode || countMode === 'off') {
-        callback();
-        return;
-      }
-
-      const beatInterval = 60 / (bpm || 120);
-      const volumeRatio = countVol !== undefined ? countVol : 1.0;
-
-      if (countVoice === 'voice' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const counts = (countMode === '8beat') ? ['5', '6', '7', '8'] : ['1', '2', '3', '4'];
-        let idx = 0;
-
-        const speakNext = () => {
-          if (idx >= counts.length) {
-            callback();
-            return;
-          }
-          const uttr = new SpeechSynthesisUtterance(counts[idx]);
-          uttr.lang = 'en-US';
-          uttr.rate = Math.min(2, Math.max(0.8, bpm / 120));
-          uttr.volume = volumeRatio;
-          
-          uttr.onend = () => {
-            idx++;
-            if (idx < counts.length) {
-              setTimeout(speakNext, Math.max(0, (beatInterval * 1000) - 150));
-            } else {
-              callback();
-            }
-          };
-
-          uttr.onerror = () => {
-            idx++;
-            speakNext();
-          };
-
-          window.speechSynthesis.speak(uttr);
-        };
-        speakNext();
-      } else {
-        try {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioCtx();
-          activeAudioContext = ctx;
-
-          const now = ctx.currentTime;
-          const totalBeats = (countMode === '8beat') ? 8 : 4;
-
-          for (let i = 0; i < totalBeats; i++) {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            osc.frequency.value = (i === totalBeats - 1) ? 1200 : 800;
-            const startTime = now + (i * beatInterval);
-
-            gain.gain.setValueAtTime(0.3 * volumeRatio, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
-
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc.start(startTime);
-            osc.stop(startTime + 0.08);
-          }
-
-          setTimeout(() => {
-            if (activeAudioContext) {
-              activeAudioContext.close();
-              activeAudioContext = null;
-            }
-            callback();
-          }, beatInterval * totalBeats * 1000);
-        } catch (e) {
-          callback();
-        }
-      }
     }
 
     function switchTab(tabName) {
@@ -544,7 +544,7 @@
       audioFiles = data ? Object.values(data) : [];
       
       audioFiles.forEach(track => {
-        if (track.url) preloadAudio(track.url);
+        if (track.url) fetchAndDecodeAudio(track.url).catch(() => {});
       });
 
       renderSettingsList();
@@ -584,7 +584,6 @@
         url: directUrl,
         bpm: 120,
         countMode: '4beat',
-        countVoice: 'beep',
         countVol: 1.0,
         musicVol: 1.0,
         sections: defaultSections
@@ -600,7 +599,6 @@
     });
 
     function renderSettingsList() {
-      // スライダー操作中は画面を再描画せずにカクつきを防ぐ
       if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'range') {
         return;
       }
@@ -613,7 +611,6 @@
         item.className = 'track-item';
 
         const currentCountMode = track.countMode !== undefined ? track.countMode : '4beat';
-        const currentCountVoice = track.countVoice !== undefined ? track.countVoice : 'beep';
         const currentCountVol = track.countVol !== undefined ? track.countVol : 1.0;
         const currentMusicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
         const maxDuration = trackDurations.get(track.url) || 180;
@@ -668,16 +665,11 @@
           </div>
 
           <div class="config-row">
-            <span>⏱️ カウント設定:</span>
+            <span>⏱️ 結合カウント:</span>
             <select class="count-mode-select" data-id="${track.id}">
-              <option value="off" ${currentCountMode === 'off' ? 'selected' : ''}>なし (即再生)</option>
-              <option value="4beat" ${currentCountMode === '4beat' ? 'selected' : ''}>4拍カウント</option>
-              <option value="8beat" ${currentCountMode === '8beat' ? 'selected' : ''}>8拍カウント</option>
-            </select>
-
-            <select class="count-voice-select" data-id="${track.id}">
-              <option value="beep" ${currentCountVoice === 'beep' ? 'selected' : ''}>電子音 (ピッ)</option>
-              <option value="voice" ${currentCountVoice === 'voice' ? 'selected' : ''}>ボイス (英語)</option>
+              <option value="off" ${currentCountMode === 'off' ? 'selected' : ''}>なし (直接再生)</option>
+              <option value="4beat" ${currentCountMode === '4beat' ? 'selected' : ''}>4拍結合</option>
+              <option value="8beat" ${currentCountMode === '8beat' ? 'selected' : ''}>8拍結合</option>
             </select>
 
             <span style="margin-left:auto;">BPM:</span>
@@ -720,15 +712,10 @@
         sel.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'countMode', e.target.value));
       });
 
-      container.querySelectorAll('.count-voice-select').forEach(sel => {
-        sel.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'countVoice', e.target.value));
-      });
-
       container.querySelectorAll('.bpm-input').forEach(input => {
         input.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'bpm', parseInt(e.target.value) || 120));
       });
 
-      // 滑らかな音量操作（指を動かしている時は画面の数値だけ超高速更新）
       container.querySelectorAll('.vol-input').forEach(input => {
         input.addEventListener('input', (e) => {
           const { id, key } = e.target.dataset;
@@ -741,7 +728,6 @@
         });
       });
 
-      // 滑らかな秒数操作（指を動かしている時は画面の数値だけ超高速更新）
       container.querySelectorAll('.sec-range-input').forEach(input => {
         input.addEventListener('input', (e) => {
           const { id, sidx, key } = e.target.dataset;
@@ -810,7 +796,7 @@
           const startSec = sec.startTotalSec !== undefined ? sec.startTotalSec : ((sec.startMin || 0) * 60 + (sec.startSec || 0));
           const endSec = sec.endTotalSec !== undefined ? sec.endTotalSec : ((sec.endMin || 0) * 60 + (sec.endSec || 4));
           
-          playSequence(track, startSec, endSec, `【試聴: ${sec.label}】${track.name}`);
+          playCombinedSequence(track, startSec, endSec, `【試聴: ${sec.label}】${track.name}`);
         });
       });
 
@@ -833,14 +819,9 @@
 
     function stopAudio() {
       if (fadeOutTimeout) clearTimeout(fadeOutTimeout);
-      if (activeAudioContext) {
-        activeAudioContext.close();
-        activeAudioContext = null;
-      }
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
+      if (currentAudioSource) {
+        try { currentAudioSource.stop(); } catch(e) {}
+        currentAudioSource = null;
       }
     }
 
@@ -871,90 +852,46 @@
       const startSec = sec.startTotalSec !== undefined ? sec.startTotalSec : ((sec.startMin || 0) * 60 + (sec.startSec || 0));
       const endSec = sec.endTotalSec !== undefined ? sec.endTotalSec : ((sec.endMin || 0) * 60 + (sec.endSec || 4));
 
-      playSequence(track, startSec, endSec, `【${sec.label}再生】${track.name}`);
+      playCombinedSequence(track, startSec, endSec, `【${sec.label}再生】${track.name}`);
     });
 
-    function playSequence(track, startSec, endSec, statusMsg) {
+    // 🚀 シームレスゼロラグ波形再生処理
+    async function playCombinedSequence(track, startSec, endSec, statusMsg) {
       stopAudio();
 
       const statusEl = document.getElementById('statusText');
-      const bpm = track.bpm || 120;
-      const countMode = track.countMode !== undefined ? track.countMode : '4beat';
-      const countVoice = track.countVoice !== undefined ? track.countVoice : 'beep';
-      const countVol = track.countVol !== undefined ? track.countVol : 1.0;
+      statusEl.textContent = "⚡ 音源合成＆準備中...";
 
-      if (countMode !== 'off') {
-        statusEl.textContent = `⏱️ カウント中 (${countMode === '8beat' ? '8拍' : '4拍'}, BPM: ${bpm})...`;
-      }
+      try {
+        const ctx = getAudioContext();
+        const { buffer, countOffset } = await generateCombinedBuffer(track);
 
-      triggerCountAudio(countMode, countVoice, bpm, countVol, () => {
-        playWithFade(track, startSec, endSec, statusMsg);
-      });
-    }
+        const playStartOffset = countOffset === 0 ? startSec : 0; // カウント付きは頭から即再生
+        const playDuration = countOffset + Math.max(0.5, endSec - startSec);
 
-    function playWithFade(track, startSec, endSec, statusMsg) {
-      const statusEl = document.getElementById('statusText');
-      const targetMusicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
-      
-      if (audioCache.has(track.url)) {
-        currentAudio = audioCache.get(track.url);
-      } else {
-        currentAudio = new Audio();
-        currentAudio.crossOrigin = "anonymous";
-        currentAudio.src = track.url;
-      }
-
-      const durationSec = Math.max(0.5, endSec - startSec);
-      const fadeTime = 0.3;
-
-      currentAudio.onerror = () => {
-        statusEl.textContent = '❌ 音声の読み込みに失敗しました（URLをご確認ください）';
-      };
-
-      const startPlayback = () => {
-        currentAudio.currentTime = Math.min(startSec, (currentAudio.duration || 999) - 0.5);
-        currentAudio.volume = 0;
+        const source = ctx.createBufferSource();
+        const gainNode = ctx.createGain();
         
-        currentAudio.play().then(() => {
-          let fadeInStep = 0;
-          const fadeInInterval = setInterval(() => {
-            fadeInStep += 0.1;
-            if (fadeInStep >= 1) {
-              if (currentAudio) currentAudio.volume = targetMusicVol;
-              clearInterval(fadeInInterval);
-            } else if (currentAudio) {
-              currentAudio.volume = fadeInStep * targetMusicVol;
-            }
-          }, (fadeTime * 1000) / 10);
+        source.buffer = buffer;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
-          const fadeOutStartTime = Math.max(0, (durationSec - fadeTime) * 1000);
-          fadeOutTimeout = setTimeout(() => {
-            if (!currentAudio) return;
-            let fadeOutStep = 1;
-            const fadeOutInterval = setInterval(() => {
-              fadeOutStep -= 0.1;
-              if (fadeOutStep <= 0) {
-                if (currentAudio) currentAudio.volume = 0;
-                clearInterval(fadeOutInterval);
-                stopAudio();
-                statusEl.textContent = `🟢 クラウド同期中（${audioFiles.length}曲共有済み）`;
-              } else if (currentAudio) {
-                currentAudio.volume = fadeOutStep * targetMusicVol;
-              }
-            }, (fadeTime * 1000) / 10);
-          }, fadeOutStartTime);
-        }).catch(() => {
-          statusEl.textContent = '⚠️ 画面を一度タップして再生を許可してください';
-        });
-      };
+        currentAudioSource = source;
 
-      if (currentAudio.readyState >= 1) {
-        startPlayback();
-      } else {
-        currentAudio.onloadedmetadata = startPlayback;
+        // 即時（0遅延）再生スタート
+        source.start(0, playStartOffset, playDuration);
+        statusEl.textContent = statusMsg;
+
+        // 再生完了後のステータス復帰
+        source.onended = () => {
+          if (currentAudioSource === source) {
+            currentAudioSource = null;
+            statusEl.textContent = `🟢 クラウド同期中（${audioFiles.length}曲共有済み）`;
+          }
+        };
+      } catch (err) {
+        statusEl.textContent = "❌ 音源の合成に失敗しました: " + err.message;
       }
-
-      statusEl.textContent = statusMsg;
     }
   </script>
 </body>
