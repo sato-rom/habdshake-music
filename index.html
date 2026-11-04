@@ -21,7 +21,7 @@
 
     body {
       margin: 0;
-      padding: 16px;
+      padding: 24px 16px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -29,24 +29,25 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
+      font-size: 1.1rem;
     }
 
     .tab-header {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 12px;
+      margin-bottom: 24px;
       width: 100%;
-      max-width: 580px;
+      max-width: 680px;
     }
 
     .tab-btn {
       flex: 1;
-      padding: 14px 10px;
+      padding: 18px 12px;
       border: 1px solid #334155;
       background-color: var(--card-bg);
       color: var(--text-sub);
-      border-radius: 12px;
-      font-size: 1rem;
+      border-radius: 16px;
+      font-size: 1.15rem;
       font-weight: bold;
       cursor: pointer;
       text-align: center;
@@ -56,13 +57,13 @@
       background-color: var(--accent);
       color: white;
       border-color: var(--accent);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
     }
 
     .page {
       display: none !important;
       width: 100%;
-      max-width: 580px;
+      max-width: 680px;
     }
 
     .page.active {
@@ -73,21 +74,21 @@
 
     .main-trigger {
       width: 100%;
-      height: 260px;
+      height: 300px;
       border: none;
-      border-radius: 28px;
+      border-radius: 32px;
       background: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6);
       color: white;
-      font-size: 2.5rem;
+      font-size: 3rem;
       font-weight: bold;
       cursor: pointer;
-      box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.4);
+      box-shadow: 0 18px 36px -6px rgba(59, 130, 246, 0.5);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-bottom: 20px;
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
     .main-trigger:active {
@@ -96,11 +97,11 @@
 
     .status-card, .settings-card {
       background-color: var(--card-bg);
-      border-radius: 16px;
-      padding: 18px;
+      border-radius: 20px;
+      padding: 24px;
       width: 100%;
       border: 1px solid #334155;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .status-card {
@@ -108,45 +109,45 @@
     }
 
     .now-playing {
-      font-size: 1.05rem;
+      font-size: 1.25rem;
       font-weight: bold;
       color: #38bdf8;
-      margin-top: 6px;
+      margin-top: 8px;
       word-break: break-all;
     }
 
     .input-box {
       background: #0f172a;
       border: 1px solid #475569;
-      border-radius: 8px;
-      padding: 12px;
+      border-radius: 12px;
+      padding: 16px;
       color: white;
       width: 100%;
-      margin-bottom: 10px;
-      font-size: 0.95rem;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
     }
 
     .add-btn {
       background-color: var(--accent);
       color: white;
       border: none;
-      border-radius: 8px;
-      padding: 12px;
+      border-radius: 12px;
+      padding: 16px;
       width: 100%;
       font-weight: bold;
-      font-size: 0.95rem;
+      font-size: 1.1rem;
       cursor: pointer;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .track-item {
       background-color: #0f172a;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
       border: 1px solid #334155;
     }
 
@@ -158,7 +159,7 @@
 
     .track-title {
       font-weight: bold;
-      font-size: 1rem;
+      font-size: 1.2rem;
       color: #f8fafc;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -170,9 +171,9 @@
       background: #ef4444;
       color: white;
       border: none;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.8rem;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.95rem;
       font-weight: bold;
       cursor: pointer;
     }
@@ -180,12 +181,12 @@
     .config-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 0.85rem;
+      gap: 10px;
+      font-size: 1rem;
       color: var(--text-sub);
       background: #1e293b;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 14px 16px;
+      border-radius: 12px;
       flex-wrap: wrap;
     }
 
@@ -193,64 +194,98 @@
       background: #0f172a;
       border: 1px solid #475569;
       color: #38bdf8;
-      border-radius: 6px;
-      padding: 6px 8px;
-      font-size: 0.85rem;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 1rem;
       font-weight: bold;
     }
 
     .volume-box {
       background: #1e293b;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 16px;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      font-size: 0.85rem;
+      gap: 14px;
+      font-size: 1rem;
     }
 
     .slider-row {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
 
     .slider-row label {
-      width: 100px;
+      width: 130px;
       color: var(--text-sub);
+      font-size: 1rem;
     }
 
-    .slider-row input[type="range"] {
+    /* 🎚️ スライダーを大きく扱いやすく修正 */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
       flex: 1;
-      accent-color: var(--accent);
+      height: 12px;
+      background: #0f172a;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+      border: none;
     }
 
     .section-box {
       background: #1e293b;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 16px;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 14px;
     }
 
     .section-title {
-      font-size: 0.85rem;
+      font-size: 1rem;
       font-weight: bold;
       color: #38bdf8;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+    }
+
+    .section-title input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
     }
 
     .range-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
     .range-label {
-      font-size: 0.8rem;
+      font-size: 0.95rem;
       color: var(--text-sub);
       display: flex;
       justify-content: space-between;
@@ -259,52 +294,53 @@
     .range-label span.val {
       color: #38bdf8;
       font-weight: bold;
+      font-size: 1.05rem;
     }
 
     .preview-btn-group {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
     .preview-btn {
       flex: 1;
-      min-width: 80px;
-      padding: 8px 4px;
+      min-width: 100px;
+      padding: 12px 6px;
       border: none;
-      border-radius: 6px;
-      font-size: 0.75rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
       color: white;
       background-color: #3b82f6;
     }
 
-    .preview-btn.stop { background-color: #ef4444; flex: 0 0 60px; }
+    .preview-btn.stop { background-color: #ef4444; flex: 0 0 70px; }
 
     .add-section-row {
       display: flex;
-      gap: 6px;
-      margin-top: 6px;
+      gap: 8px;
+      margin-top: 8px;
     }
 
     .add-section-row input {
       background: #0f172a;
       border: 1px solid #475569;
       color: white;
-      border-radius: 6px;
-      padding: 6px;
-      font-size: 0.8rem;
-      width: 120px;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      width: 150px;
     }
 
     .small-btn {
       background: #334155;
       color: #f8fafc;
       border: 1px solid #475569;
-      border-radius: 6px;
-      padding: 4px 8px;
-      font-size: 0.75rem;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
       cursor: pointer;
     }
   </style>
@@ -320,11 +356,11 @@
   <div id="pageMain" class="page active">
     <button id="mainTriggerBtn" class="main-trigger" type="button">
       🎵 TOUCH ME!
-      <span style="font-size: 1rem; font-weight: normal; opacity: 0.9;">（1タップで即時再生）</span>
+      <span style="font-size: 1.2rem; font-weight: normal; opacity: 0.9;">（1タップで即時再生）</span>
     </button>
 
     <div class="status-card">
-      <div style="font-size: 0.8rem; color: var(--text-sub);">STATUS</div>
+      <div style="font-size: 0.95rem; color: var(--text-sub);">STATUS</div>
       <div id="statusText" class="now-playing">クラウド接続中...</div>
     </div>
   </div>
@@ -332,7 +368,7 @@
   <!-- PAGE 2: 設定画面 -->
   <div id="pageSettings" class="page">
     <div class="settings-card">
-      <h2 style="margin-top: 0; font-size: 1.15rem;">🎵 クラウド共有曲の追加</h2>
+      <h2 style="margin-top: 0; font-size: 1.3rem;">🎵 クラウド共有曲の追加</h2>
 
       <input type="text" id="trackNameInput" class="input-box" placeholder="曲名（例: ダンス曲A）">
       <input type="text" id="trackUrlInput" class="input-box" placeholder="Dropbox等の共有URL">
@@ -380,7 +416,6 @@
       audioCache.set(url, audio);
     }
 
-    // 秒数を「01:23.45」形式に整形
     function formatTime(seconds) {
       if (isNaN(seconds) || seconds === null) return "00:00.00";
       const m = Math.floor(seconds / 60);
@@ -389,7 +424,6 @@
       return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
     }
 
-    // カウント音生成（独立した音量ボリューム付き）
     function triggerCountAudio(countMode, countVoice, bpm, countVol, callback) {
       if (!countMode || countMode === 'off') {
         callback();
@@ -602,7 +636,8 @@
                   <span>開始位置:</span>
                   <span class="val">${formatTime(startVal)}</span>
                 </div>
-                <input type="range" min="0" max="${maxDuration}" step="0.1" value="${startVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="startTotalSec">
+                <!-- ⭕ 0.01秒刻みで細密調整 -->
+                <input type="range" min="0" max="${maxDuration}" step="0.01" value="${startVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="startTotalSec">
               </div>
 
               <div class="range-group">
@@ -610,7 +645,8 @@
                   <span>終了位置:</span>
                   <span class="val">${formatTime(endVal)}</span>
                 </div>
-                <input type="range" min="0" max="${maxDuration}" step="0.1" value="${endVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="endTotalSec">
+                <!-- ⭕ 0.01秒刻みで細密調整 -->
+                <input type="range" min="0" max="${maxDuration}" step="0.01" value="${endVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="endTotalSec">
               </div>
             </div>
           `;
@@ -640,20 +676,22 @@
             </select>
 
             <span style="margin-left:auto;">BPM:</span>
-            <input type="number" min="40" max="240" value="${track.bpm || 120}" class="bpm-input" data-id="${track.id}" style="width:55px; text-align:center;">
+            <input type="number" min="40" max="240" value="${track.bpm || 120}" class="bpm-input" data-id="${track.id}" style="width:65px; text-align:center;">
           </div>
 
-          <!-- 音量バランス調整バー -->
+          <!-- 音量バランス調整バー (1%刻み) -->
           <div class="volume-box">
             <div class="slider-row">
               <label>🗣️ カウント音量</label>
-              <input type="range" min="0" max="1" step="0.05" value="${currentCountVol}" class="vol-input" data-id="${track.id}" data-key="countVol">
-              <span style="width: 35px; font-size: 0.8rem; text-align: right;">${Math.round(currentCountVol * 100)}%</span>
+              <!-- ⭕ step="0.01" で1%刻みに調整可能 -->
+              <input type="range" min="0" max="1" step="0.01" value="${currentCountVol}" class="vol-input" data-id="${track.id}" data-key="countVol">
+              <span style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentCountVol * 100)}%</span>
             </div>
             <div class="slider-row">
               <label>🎵 音源（曲）音量</label>
-              <input type="range" min="0" max="1" step="0.05" value="${currentMusicVol}" class="vol-input" data-id="${track.id}" data-key="musicVol">
-              <span style="width: 35px; font-size: 0.8rem; text-align: right;">${Math.round(currentMusicVol * 100)}%</span>
+              <!-- ⭕ step="0.01" で1%刻みに調整可能 -->
+              <input type="range" min="0" max="1" step="0.01" value="${currentMusicVol}" class="vol-input" data-id="${track.id}" data-key="musicVol">
+              <span style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentMusicVol * 100)}%</span>
             </div>
           </div>
 
