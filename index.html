@@ -3,21 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>研究室 入退出ハンドシェイク</title>
+  <title>研究室 入退出ハンドシェイク - 波形エディタ</title>
 
   <style>
     :root {
-      --bg-color: #0f172a;
-      --card-bg: #1e293b;
+      --bg-color: #0b0f19;
+      --card-bg: #151d30;
       --accent: #3b82f6;
+      --accent-green: #10b981;
+      --wave-color: #00ffcc;
       --text-main: #f8fafc;
       --text-sub: #94a3b8;
     }
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
       margin: 0;
@@ -29,28 +28,27 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
     }
 
     .tab-header {
       display: flex;
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       width: 100%;
-      max-width: 680px;
+      max-width: 720px;
     }
 
     .tab-btn {
       flex: 1;
-      padding: 18px 12px;
-      border: 1px solid #334155;
+      padding: 16px 12px;
+      border: 1px solid #2a3754;
       background-color: var(--card-bg);
       color: var(--text-sub);
-      border-radius: 16px;
-      font-size: 1.15rem;
+      border-radius: 14px;
+      font-size: 1.1rem;
       font-weight: bold;
       cursor: pointer;
-      text-align: center;
     }
 
     .tab-btn.active {
@@ -60,23 +58,14 @@
       box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
     }
 
-    .page {
-      display: none !important;
-      width: 100%;
-      max-width: 680px;
-    }
-
-    .page.active {
-      display: flex !important;
-      flex-direction: column;
-      align-items: center;
-    }
+    .page { display: none !important; width: 100%; max-width: 720px; }
+    .page.active { display: flex !important; flex-direction: column; align-items: center; }
 
     .main-trigger {
       width: 100%;
-      height: 260px;
+      height: 240px;
       border: none;
-      border-radius: 32px;
+      border-radius: 28px;
       background: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6);
       color: white;
       font-size: 2.8rem;
@@ -91,306 +80,156 @@
       margin-bottom: 24px;
     }
 
-    .main-trigger:active {
-      transform: scale(0.96);
-    }
-
     .status-card, .settings-card {
       background-color: var(--card-bg);
       border-radius: 20px;
-      padding: 24px;
+      padding: 20px;
       width: 100%;
-      border: 1px solid #334155;
+      border: 1px solid #2a3754;
       margin-bottom: 20px;
     }
 
-    .status-card {
-      text-align: center;
-    }
-
-    .now-playing {
-      font-size: 1.25rem;
-      font-weight: bold;
-      color: #38bdf8;
-      margin-top: 8px;
-      word-break: break-all;
-    }
-
     .input-box {
-      background: #0f172a;
-      border: 1px solid #475569;
-      border-radius: 12px;
-      padding: 16px;
+      background: #0b0f19;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px;
       color: white;
       width: 100%;
       margin-bottom: 12px;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
 
     .add-btn {
       background-color: var(--accent);
       color: white;
       border: none;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 14px;
       width: 100%;
       font-weight: bold;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       cursor: pointer;
       margin-bottom: 20px;
     }
 
     .track-item {
-      background-color: #0f172a;
+      background-color: #0d1424;
       border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
+      padding: 18px;
+      margin-bottom: 24px;
+      border: 1px solid #2a3754;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+    }
+
+    .step-box {
+      background: #151d30;
       border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    .track-header {
+    .step-title {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #38bdf8;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .track-title {
-      font-weight: bold;
-      font-size: 1.2rem;
-      color: #f8fafc;
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 120px;
+      background: #000000;
+      border: 1px solid #00ffcc44;
+      border-radius: 8px;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 75%;
     }
 
-    .delete-btn {
-      background: #ef4444;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 0.95rem;
-      font-weight: bold;
-      cursor: pointer;
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
-    .config-row {
+    .ctrl-row {
       display: flex;
+      gap: 6px;
       align-items: center;
-      gap: 10px;
-      font-size: 1rem;
-      color: var(--text-sub);
-      background: #1e293b;
-      padding: 14px 16px;
-      border-radius: 12px;
       flex-wrap: wrap;
     }
 
-    .config-row select, .config-row input[type="number"] {
-      background: #0f172a;
-      border: 1px solid #475569;
-      color: #38bdf8;
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 1rem;
-      font-weight: bold;
-    }
-
-    .volume-box {
-      background: #1e293b;
-      padding: 16px;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      font-size: 1rem;
-    }
-
-    .slider-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .slider-row label {
-      width: 130px;
-      color: var(--text-sub);
-      font-size: 1rem;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      flex: 1;
-      height: 16px;
-      background: #0f172a;
-      border-radius: 8px;
-      border: 1px solid #475569;
-      outline: none;
-      touch-action: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: #38bdf8;
-      cursor: pointer;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: #38bdf8;
-      cursor: pointer;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
-      border: none;
-    }
-
-    .section-box {
-      background: #1e293b;
-      padding: 16px;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .section-title {
-      font-size: 1rem;
-      font-weight: bold;
-      color: #38bdf8;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .section-title input[type="checkbox"] {
-      width: 22px;
-      height: 22px;
-    }
-
-    .count-setting-row {
-      background: #0f172a;
-      padding: 10px 12px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .small-num-input {
+      background: #0b0f19;
+      border: 1px solid #334155;
+      color: #00ffcc;
+      border-radius: 6px;
+      padding: 6px;
       font-size: 0.9rem;
-      color: var(--text-sub);
-      flex-wrap: wrap;
-    }
-
-    .count-setting-row input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-    }
-
-    .range-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .range-label {
-      font-size: 0.95rem;
-      color: var(--text-sub);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .range-label span.val {
-      color: #38bdf8;
       font-weight: bold;
-      font-size: 1.05rem;
+      width: 80px;
+      text-align: center;
     }
 
-    .preview-btn-group {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+    .fine-btn {
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
     }
+
+    .fine-btn:active { background: #38bdf8; color: #000; }
 
     .preview-btn {
       flex: 1;
-      min-width: 100px;
-      padding: 12px 6px;
+      padding: 10px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
       color: white;
-      background-color: #3b82f6;
+      background-color: var(--accent);
     }
-
     .preview-btn.stop { background-color: #ef4444; flex: 0 0 70px; }
-
-    .add-section-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .add-section-row input {
-      background: #0f172a;
-      border: 1px solid #475569;
-      color: white;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 0.95rem;
-      width: 150px;
-    }
-
-    .small-btn {
-      background: #334155;
-      color: #f8fafc;
-      border: 1px solid #475569;
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
 
   <div class="tab-header">
     <button id="tabMain" class="tab-btn active" type="button">🚪 メイン画面</button>
-    <button id="tabSettings" class="tab-btn" type="button">⚙️ 曲・詳細設定</button>
+    <button id="tabSettings" class="tab-btn" type="button">⚙️ 曲・詳細波形編集</button>
   </div>
 
   <!-- PAGE 1: メイン画面 -->
   <div id="pageMain" class="page active">
     <button id="mainTriggerBtn" class="main-trigger" type="button">
       🎵 TOUCH ME!
-      <span style="font-size: 1.2rem; font-weight: normal; opacity: 0.9;">（1タップで即時再生）</span>
+      <span style="font-size: 1.1rem; font-weight: normal;">（1タップで即時再生）</span>
     </button>
-
-    <div class="status-card">
-      <div style="font-size: 0.95rem; color: var(--text-sub);">STATUS</div>
-      <div id="statusText" class="now-playing">クラウド接続中...</div>
+    <div class="status-card" style="text-align: center;">
+      <div style="font-size: 0.9rem; color: var(--text-sub);">STATUS</div>
+      <div id="statusText" style="font-size: 1.2rem; font-weight: bold; color: #38bdf8;">接続中...</div>
     </div>
   </div>
 
   <!-- PAGE 2: 設定画面 -->
   <div id="pageSettings" class="page">
     <div class="settings-card">
-      <h2 style="margin-top: 0; font-size: 1.3rem;">🎵 クラウド共有曲の追加</h2>
-
+      <h2 style="margin-top: 0; font-size: 1.2rem;">🎵 クラウド共有曲の追加</h2>
       <input type="text" id="trackNameInput" class="input-box" placeholder="曲名（例: ダンス曲A）">
       <input type="text" id="trackUrlInput" class="input-box" placeholder="Dropbox等の共有URL">
-      <button id="addTrackBtn" class="add-btn" type="button">＋ 全端末へ曲を追加共有する</button>
-
+      <button id="addTrackBtn" class="add-btn" type="button">＋ 曲を追加して波形編集を開始</button>
       <div id="trackList"></div>
     </div>
   </div>
@@ -416,114 +255,16 @@
     let audioFiles = [];
     let currentAudio = null;
     let fadeOutTimeout = null;
-    let activeAudioContext = null;
+    let autoCountInterval = null;
     let updateTimer = null;
-    let autoCountCheckInterval = null;
-    let hasCountTriggered = false;
 
-    const audioCache = new Map();
-    const trackDurations = new Map();
-
-    function preloadAudio(url) {
-      if (!url || audioCache.has(url)) return;
-      const audio = new Audio();
-      audio.crossOrigin = "anonymous";
-      audio.preload = "auto";
-      audio.src = url;
-      audio.onloadedmetadata = () => {
-        trackDurations.set(url, audio.duration || 180);
-        renderSettingsList();
-      };
-      audioCache.set(url, audio);
-    }
-
-    function formatTime(seconds) {
-      if (isNaN(seconds) || seconds === null) return "00:00.00";
-      const m = Math.floor(seconds / 60);
-      const s = Math.floor(seconds % 60);
-      const ms = Math.floor((seconds % 1) * 100);
-      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
-    }
-
-    // 指定されたタイミングで自動発動する裏カウント処理
-    function playOverlayCount(bpm, countVol, countVoice) {
-      const beatInterval = 60 / (bpm || 120);
-      const volumeRatio = countVol !== undefined ? countVol : 1.0;
-
-      if (countVoice === 'voice' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const counts = ['1', '2', '3', '4'];
-        let idx = 0;
-
-        const speakNext = () => {
-          if (idx >= counts.length) return;
-          const uttr = new SpeechSynthesisUtterance(counts[idx]);
-          uttr.lang = 'en-US';
-          uttr.rate = Math.min(2, Math.max(0.8, (bpm || 120) / 120));
-          uttr.volume = volumeRatio;
-          
-          uttr.onend = () => {
-            idx++;
-            if (idx < counts.length) {
-              setTimeout(speakNext, Math.max(0, (beatInterval * 1000) - 150));
-            }
-          };
-
-          uttr.onerror = () => {
-            idx++;
-            speakNext();
-          };
-
-          window.speechSynthesis.speak(uttr);
-        };
-        speakNext();
-      } else {
-        try {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioCtx();
-
-          const now = ctx.currentTime;
-          for (let i = 0; i < 4; i++) {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            osc.frequency.value = (i === 3) ? 1200 : 800;
-            const startTime = now + (i * beatInterval);
-
-            gain.gain.setValueAtTime(0.3 * volumeRatio, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
-
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc.start(startTime);
-            osc.stop(startTime + 0.08);
-          }
-
-          setTimeout(() => {
-            ctx.close();
-          }, beatInterval * 4 * 1000 + 100);
-        } catch (e) {}
-      }
-    }
+    const decodedBuffers = new Map();
 
     function switchTab(tabName) {
-      const tabMain = document.getElementById('tabMain');
-      const tabSettings = document.getElementById('tabSettings');
-      const pageMain = document.getElementById('pageMain');
-      const pageSettings = document.getElementById('pageSettings');
-
-      if (tabName === 'main') {
-        tabMain.classList.add('active');
-        tabSettings.classList.remove('active');
-        pageMain.classList.add('active');
-        pageSettings.classList.remove('active');
-      } else {
-        tabSettings.classList.add('active');
-        tabMain.classList.remove('active');
-        pageSettings.classList.add('active');
-        pageMain.classList.remove('active');
-      }
+      document.getElementById('tabMain').classList.toggle('active', tabName === 'main');
+      document.getElementById('tabSettings').classList.toggle('active', tabName === 'settings');
+      document.getElementById('pageMain').classList.toggle('active', tabName === 'main');
+      document.getElementById('pageSettings').classList.toggle('active', tabName === 'settings');
       stopAudio();
     }
 
@@ -532,78 +273,62 @@
 
     function convertToDirectLink(url) {
       if (!url) return "";
-      let cleanUrl = url.trim();
-      if (cleanUrl.includes("dropbox.com")) {
-        return cleanUrl.replace("dl=0", "dl=1").replace("www.dropbox.com", "dl.dropboxusercontent.com");
+      let clean = url.trim();
+      return clean.includes("dropbox.com") ? clean.replace("dl=0", "dl=1").replace("www.dropbox.com", "dl.dropboxusercontent.com") : clean;
+    }
+
+    async function loadAudioBuffer(url) {
+      if (decodedBuffers.has(url)) return decodedBuffers.get(url);
+      try {
+        const res = await fetch(url);
+        const arrayBuf = await res.arrayBuffer();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const decoded = await ctx.decodeAudioData(arrayBuf);
+        decodedBuffers.set(url, decoded);
+        return decoded;
+      } catch(e) {
+        return null;
       }
-      return cleanUrl;
+    }
+
+    function formatTime(sec) {
+      if (isNaN(sec) || sec === null) return "00:00.00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      const ms = Math.floor((sec % 1) * 100);
+      return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(2,'0')}`;
     }
 
     const tracksDbRef = ref(db, "tracks");
     onValue(tracksDbRef, (snapshot) => {
       const data = snapshot.val();
       audioFiles = data ? Object.values(data) : [];
-      
-      audioFiles.forEach(track => {
-        if (track.url) preloadAudio(track.url);
-      });
-
-      renderSettingsList();
-
-      const statusEl = document.getElementById('statusText');
-      if (audioFiles.length > 0) {
-        statusEl.textContent = `🟢 クラウド同期中（${audioFiles.length}曲共有済み）`;
-      } else {
-        statusEl.textContent = '待機中（「⚙️ 曲・詳細設定」から曲を追加してください）';
-      }
-    }, (error) => {
-      document.getElementById('statusText').textContent = '⚠️ 接続エラー: ' + error.message;
+      renderList();
+      document.getElementById('statusText').textContent = audioFiles.length > 0 ? `🟢 クラウド同期中（${audioFiles.length}曲）` : '待機中';
     });
 
     document.getElementById('addTrackBtn').addEventListener('click', async () => {
-      const nameInput = document.getElementById("trackNameInput");
-      const urlInput = document.getElementById("trackUrlInput");
-      const name = nameInput.value.trim();
-      const rawUrl = urlInput.value.trim();
-
-      if (!name || !rawUrl) {
-        alert("曲名とURLの両方を入力してください。");
-        return;
-      }
+      const name = document.getElementById("trackNameInput").value.trim();
+      const rawUrl = document.getElementById("trackUrlInput").value.trim();
+      if (!name || !rawUrl) return alert("曲名とURLを入力してください。");
 
       const directUrl = convertToDirectLink(rawUrl);
-      const id = "track_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
-
-      const defaultSections = [
-        { id: 'sec_4', label: '4拍', active: true, startTotalSec: 0, endTotalSec: 4, autoCount: false, countTriggerSec: 0 },
-        { id: 'sec_8', label: '8拍', active: true, startTotalSec: 0, endTotalSec: 8, autoCount: false, countTriggerSec: 0 }
-      ];
-
+      const id = "track_" + Date.now();
       const trackData = {
-        id: id,
-        name: name,
-        url: directUrl,
-        bpm: 120,
-        countVoice: 'beep',
-        countVol: 1.0,
-        musicVol: 1.0,
-        sections: defaultSections
+        id, name, url: directUrl, bpm: 120,
+        mainStartSec: 0, mainEndSec: 30, // ① 全体切り出し初期値（30秒間）
+        sections: [
+          { id: 'sec_8', label: '8拍使用区間', active: true, offsetStartSec: 0, offsetEndSec: 4, autoCount: true, triggerOffsetSec: 0 }
+        ]
       };
-
-      try {
-        await set(ref(db, `tracks/${id}`), trackData);
-        nameInput.value = "";
-        urlInput.value = "";
-      } catch (err) {
-        alert("追加に失敗しました: " + err.message);
-      }
+      await set(ref(db, `tracks/${id}`), trackData);
+      document.getElementById("trackNameInput").value = "";
+      document.getElementById("trackUrlInput").value = "";
     });
 
-    function renderSettingsList() {
-      if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'range') {
-        return;
-      }
-
+    function renderList() {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
       const container = document.getElementById('trackList');
       container.innerHTML = '';
 
@@ -611,231 +336,192 @@
         const item = document.createElement('div');
         item.className = 'track-item';
 
-        const currentCountVoice = track.countVoice !== undefined ? track.countVoice : 'beep';
-        const currentCountVol = track.countVol !== undefined ? track.countVol : 1.0;
-        const currentMusicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
-        const maxDuration = trackDurations.get(track.url) || 180;
+        const sec = (track.sections && track.sections[0]) ? track.sections[0] : {
+          label: '8拍区間', active: true, offsetStartSec: 0, offsetEndSec: 4, autoCount: true, triggerOffsetSec: 0
+        };
 
-        let sections = track.sections;
-        if (!sections || !Array.isArray(sections)) {
-          sections = [
-            { id: 'sec_4', label: '4拍', active: true, startTotalSec: 0, endTotalSec: 4, autoCount: false, countTriggerSec: 0 },
-            { id: 'sec_8', label: '8拍', active: true, startTotalSec: 0, endTotalSec: 8, autoCount: false, countTriggerSec: 0 }
-          ];
-        }
-
-        let sectionsHTML = sections.map((sec, sIdx) => {
-          let startVal = sec.startTotalSec !== undefined ? sec.startTotalSec : ((sec.startMin || 0) * 60 + (sec.startSec || 0));
-          let endVal = sec.endTotalSec !== undefined ? sec.endTotalSec : ((sec.endMin || 0) * 60 + (sec.endSec || 4));
-          let autoCount = sec.autoCount || false;
-          let triggerSec = sec.countTriggerSec !== undefined ? sec.countTriggerSec : startVal;
-
-          return `
-            <div class="section-box">
-              <div class="section-title">
-                <input type="checkbox" class="sec-active-check" data-id="${track.id}" data-sidx="${sIdx}" ${sec.active ? 'checked' : ''}>
-                <span>${sec.label} 区間設定</span>
-                <button class="small-btn sec-del-btn" data-id="${track.id}" data-sidx="${sIdx}" style="margin-left:auto; color:#ef4444;">削除</button>
-              </div>
-              
-              <div class="range-group">
-                <div class="range-label">
-                  <span>開始位置:</span>
-                  <span class="val" id="disp_start_${track.id}_${sIdx}">${formatTime(startVal)}</span>
-                </div>
-                <input type="range" min="0" max="${maxDuration}" step="0.05" value="${startVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="startTotalSec">
-              </div>
-
-              <div class="range-group">
-                <div class="range-label">
-                  <span>終了位置:</span>
-                  <span class="val" id="disp_end_${track.id}_${sIdx}">${formatTime(endVal)}</span>
-                </div>
-                <input type="range" min="0" max="${maxDuration}" step="0.05" value="${endVal}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="endTotalSec">
-              </div>
-
-              <!-- ⏱️ 自動カウント発動設定 -->
-              <div class="count-setting-row">
-                <input type="checkbox" class="auto-count-check" data-id="${track.id}" data-sidx="${sIdx}" ${autoCount ? 'checked' : ''}>
-                <span>この区間で自動裏カウントを鳴らす</span>
-              </div>
-
-              ${autoCount ? `
-              <div class="range-group" style="padding-left: 10px;">
-                <div class="range-label">
-                  <span>⏱️ カウント自動鳴らし開始タイミング:</span>
-                  <span class="val" id="disp_trigger_${track.id}_${sIdx}">${formatTime(triggerSec)}</span>
-                </div>
-                <input type="range" min="${startVal}" max="${endVal}" step="0.05" value="${triggerSec}" class="sec-range-input" data-id="${track.id}" data-sidx="${sIdx}" data-key="countTriggerSec">
-              </div>
-              ` : ''}
-            </div>
-          `;
-        }).join('');
-
-        let previewBtnsHTML = sections.map((sec, sIdx) => `
-          <button class="preview-btn" data-index="${index}" data-sidx="${sIdx}">▶ ${sec.label}試聴</button>
-        `).join('');
+        const mainStart = track.mainStartSec || 0;
+        const mainEnd = track.mainEndSec || 30;
+        const selectedDuration = Math.max(0.1, mainEnd - mainStart);
 
         item.innerHTML = `
-          <div class="track-header">
-            <div class="track-title">${index + 1}. ${track.name}</div>
-            <button class="delete-btn" data-id="${track.id}">削除</button>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:1.1rem; color:#f8fafc;">${index + 1}. ${track.name}</strong>
+            <button class="fine-btn del-btn" data-id="${track.id}" style="color:#ef4444; border-color:#ef4444;">削除</button>
           </div>
 
-          <div class="config-row">
-            <span>⏱️ カウント音種:</span>
-            <select class="count-voice-select" data-id="${track.id}">
-              <option value="beep" ${currentCountVoice === 'beep' ? 'selected' : ''}>電子音 (ピッ)</option>
-              <option value="voice" ${currentCountVoice === 'voice' ? 'selected' : ''}>ボイス (英語)</option>
-            </select>
-
-            <span style="margin-left:auto;">BPM:</span>
-            <input type="number" min="40" max="240" value="${track.bpm || 120}" class="bpm-input" data-id="${track.id}" style="width:65px; text-align:center;">
-          </div>
-
-          <div class="volume-box">
-            <div class="slider-row">
-              <label>🗣️ 自動カウント音量</label>
-              <input type="range" min="0" max="1" step="0.01" value="${currentCountVol}" class="vol-input" data-id="${track.id}" data-key="countVol">
-              <span class="val-text" id="disp_vol_countVol_${track.id}" style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentCountVol * 100)}%</span>
+          <!-- STEP 1: 曲全体から長めに大まかカット -->
+          <div class="step-box">
+            <div class="step-title">
+              <span>ステップ1: 曲全体の切り出し（使用する大枠範囲）</span>
+              <span style="color:#00ffcc;">長: ${selectedDuration.toFixed(2)}秒</span>
             </div>
-            <div class="slider-row">
-              <label>🎵 音源（曲）音量</label>
-              <input type="range" min="0" max="1" step="0.01" value="${currentMusicVol}" class="vol-input" data-id="${track.id}" data-key="musicVol">
-              <span class="val-text" id="disp_vol_musicVol_${track.id}" style="width: 45px; font-size: 0.95rem; text-align: right; font-weight: bold;">${Math.round(currentMusicVol * 100)}%</span>
+            <div class="canvas-container">
+              <canvas id="canvas_full_${track.id}"></canvas>
+            </div>
+            <div class="ctrl-row">
+              <label style="font-size:0.85rem;">開始:</label>
+              <input type="number" step="0.1" value="${mainStart.toFixed(2)}" class="small-num-input input-main" data-id="${track.id}" data-key="mainStartSec">
+              <label style="font-size:0.85rem;">終了:</label>
+              <input type="number" step="0.1" value="${mainEnd.toFixed(2)}" class="small-num-input input-main" data-id="${track.id}" data-key="mainEndSec">
+              <span style="font-size:0.8rem; color:var(--text-sub); margin-left:auto;">(切り出し範囲を絞ると下図が拡大されます)</span>
             </div>
           </div>
 
-          ${sectionsHTML}
+          <!-- STEP 2: カットした部分だけを拡大して8拍・秒数を細密編集 -->
+          <div class="step-box" style="border-color:#38bdf8;">
+            <div class="step-title" style="color:#38bdf8;">
+              <span>ステップ2: 拡大波形での8拍・裏カウント細密設定</span>
+              <span>再生範囲: ${formatTime(mainStart + (sec.offsetStartSec||0))} 〜 ${formatTime(mainStart + (sec.offsetEndSec||4))}</span>
+            </div>
+            <div class="canvas-container" style="height:140px; border-color:#38bdf8;">
+              <canvas id="canvas_sub_${track.id}"></canvas>
+            </div>
 
-          <div class="add-section-row">
-            <input type="text" placeholder="区間名 (例: 12拍)" class="new-sec-label" id="newSecLabel_${track.id}">
-            <button class="small-btn add-sec-btn" data-id="${track.id}">＋ 区間追加</button>
+            <div class="ctrl-row">
+              <span style="font-size:0.85rem;">8拍範囲(秒):</span>
+              <button class="fine-btn step-sub-btn" data-id="${track.id}" data-key="offsetStartSec" data-delta="-0.05">-0.05s</button>
+              <input type="number" step="0.01" value="${(sec.offsetStartSec||0).toFixed(2)}" class="small-num-input input-sub" data-id="${track.id}" data-key="offsetStartSec">
+              <button class="fine-btn step-sub-btn" data-id="${track.id}" data-key="offsetStartSec" data-delta="0.05">+0.05s</button>
+              <span>〜</span>
+              <button class="fine-btn step-sub-btn" data-id="${track.id}" data-key="offsetEndSec" data-delta="-0.05">-0.05s</button>
+              <input type="number" step="0.01" value="${(sec.offsetEndSec||4).toFixed(2)}" class="small-num-input input-sub" data-id="${track.id}" data-key="offsetEndSec">
+              <button class="fine-btn step-sub-btn" data-id="${track.id}" data-key="offsetEndSec" data-delta="0.05">+0.05s</button>
+            </div>
+
+            <div class="ctrl-row" style="background:#0b0f19; padding:8px; border-radius:6px; margin-top:4px;">
+              <input type="checkbox" class="chk-autocount" data-id="${track.id}" ${sec.autoCount ? 'checked':''}>
+              <span style="font-size:0.85rem;">自動裏カウント位置:</span>
+              <input type="number" step="0.01" value="${(sec.triggerOffsetSec||0).toFixed(2)}" class="small-num-input input-sub" data-id="${track.id}" data-key="triggerOffsetSec">
+              <span style="font-size:0.8rem; color:var(--text-sub);">秒目</span>
+            </div>
           </div>
 
-          <div class="preview-btn-group">
-            ${previewBtnsHTML}
+          <div class="ctrl-row">
+            <button class="preview-btn play-btn" data-id="${track.id}">▶ 設定した8拍区間を再生試聴</button>
             <button class="preview-btn stop btn-stop">■ 停止</button>
           </div>
         `;
         container.appendChild(item);
+
+        // 波形描画の実行
+        drawWaveforms(track);
       });
 
-      container.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => removeTrack(e.target.dataset.id));
-      });
+      // イベントリスナー割り当て
+      container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', (e) => remove(ref(db, `tracks/${e.target.dataset.id}`))));
 
-      container.querySelectorAll('.count-voice-select').forEach(sel => {
-        sel.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'countVoice', e.target.value));
-      });
-
-      container.querySelectorAll('.bpm-input').forEach(input => {
-        input.addEventListener('change', (e) => updateTrackField(e.target.dataset.id, 'bpm', parseInt(e.target.value) || 120));
-      });
-
-      container.querySelectorAll('.vol-input').forEach(input => {
-        input.addEventListener('input', (e) => {
+      container.querySelectorAll('.input-main').forEach(input => {
+        input.addEventListener('change', (e) => {
           const { id, key } = e.target.dataset;
-          const val = parseFloat(e.target.value);
-          const disp = document.getElementById(`disp_vol_${key}_${id}`);
-          if (disp) disp.textContent = `${Math.round(val * 100)}%`;
-
-          clearTimeout(updateTimer);
-          updateTimer = setTimeout(() => updateTrackField(id, key, val), 200);
+          const val = Math.max(0, parseFloat(e.target.value) || 0);
+          updateTrackField(id, key, val);
         });
       });
 
-      container.querySelectorAll('.auto-count-check').forEach(chk => {
-        chk.addEventListener('change', (e) => {
-          const { id, sidx } = e.target.dataset;
-          const track = audioFiles.find(t => t.id === id);
-          if (track && track.sections && track.sections[sidx]) {
-            track.sections[sidx].autoCount = e.target.checked;
-            updateTrackField(id, 'sections', track.sections);
-          }
+      container.querySelectorAll('.input-sub').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const { id, key } = e.target.dataset;
+          const val = Math.max(0, parseFloat(e.target.value) || 0);
+          updateSubField(id, key, val);
         });
       });
 
-      container.querySelectorAll('.sec-range-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-          const { id, sidx, key } = e.target.dataset;
-          const val = parseFloat(e.target.value);
-          
-          let labelType = 'start';
-          if (key === 'endTotalSec') labelType = 'end';
-          if (key === 'countTriggerSec') labelType = 'trigger';
-
-          const disp = document.getElementById(`disp_${labelType}_${id}_${sidx}`);
-          if (disp) disp.textContent = formatTime(val);
-
-          const track = audioFiles.find(t => t.id === id);
-          if (track && track.sections && track.sections[sidx]) {
-            track.sections[sidx][key] = val;
-            clearTimeout(updateTimer);
-            updateTimer = setTimeout(() => updateTrackField(id, 'sections', track.sections), 200);
-          }
-        });
-      });
-
-      container.querySelectorAll('.sec-active-check').forEach(chk => {
-        chk.addEventListener('change', (e) => {
-          const { id, sidx } = e.target.dataset;
-          const track = audioFiles.find(t => t.id === id);
-          if (track && track.sections && track.sections[sidx]) {
-            track.sections[sidx].active = e.target.checked;
-            updateTrackField(id, 'sections', track.sections);
-          }
-        });
-      });
-
-      container.querySelectorAll('.sec-del-btn').forEach(btn => {
+      container.querySelectorAll('.step-sub-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const { id, sidx } = e.target.dataset;
+          const { id, key, delta } = e.target.dataset;
           const track = audioFiles.find(t => t.id === id);
-          if (track && track.sections) {
-            track.sections.splice(sidx, 1);
-            updateTrackField(id, 'sections', track.sections);
+          if (track && track.sections && track.sections[0]) {
+            const current = track.sections[0][key] || 0;
+            updateSubField(id, key, Math.max(0, current + parseFloat(delta)));
           }
         });
       });
 
-      container.querySelectorAll('.add-sec-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+      container.querySelectorAll('.chk-autocount').forEach(chk => {
+        chk.addEventListener('change', (e) => {
           const id = e.target.dataset.id;
-          const labelInput = document.getElementById(`newSecLabel_${id}`);
-          const labelText = labelInput.value.trim() || '新区間';
           const track = audioFiles.find(t => t.id === id);
-          if (track) {
-            const sections = track.sections || [];
-            sections.push({
-              id: 'sec_' + Date.now(),
-              label: labelText,
-              active: true,
-              startTotalSec: 0,
-              endTotalSec: 4,
-              autoCount: false,
-              countTriggerSec: 0
-            });
-            updateTrackField(id, 'sections', sections);
+          if (track && track.sections && track.sections[0]) {
+            track.sections[0].autoCount = e.target.checked;
+            updateTrackField(id, 'sections', track.sections);
           }
         });
       });
 
-      container.querySelectorAll('.preview-btn[data-sidx]').forEach(btn => {
+      container.querySelectorAll('.play-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const trackIdx = parseInt(e.target.dataset.index);
-          const sIdx = parseInt(e.target.dataset.sidx);
-          const track = audioFiles[trackIdx];
-          const sec = track.sections[sIdx];
-          
-          playWithFade(track, sec, `【試聴: ${sec.label}】${track.name}`);
+          const track = audioFiles.find(t => t.id === e.target.dataset.id);
+          if (track) playTrack(track);
         });
       });
 
-      container.querySelectorAll('.btn-stop').forEach(btn => {
-        btn.addEventListener('click', stopAudio);
-      });
+      container.querySelectorAll('.btn-stop').forEach(btn => btn.addEventListener('click', stopAudio));
+    }
+
+    async function drawWaveforms(track) {
+      const buf = await loadAudioBuffer(track.url);
+      if (!buf) return;
+
+      const mainStart = track.mainStartSec || 0;
+      const mainEnd = track.mainEndSec || 30;
+      const sec = (track.sections && track.sections[0]) ? track.sections[0] : {};
+      const subStart = sec.offsetStartSec || 0;
+      const subEnd = sec.offsetEndSec || 4;
+
+      // 1. 全体波形キャンバス描画
+      const canvasFull = document.getElementById(`canvas_full_${track.id}`);
+      if (canvasFull) {
+        renderWaveOnCanvas(canvasFull, buf, 0, buf.duration, mainStart, mainEnd, '#00ffcc', '#ff005544');
+      }
+
+      // 2. 切り出し部分の拡大波形キャンバス描画
+      const canvasSub = document.getElementById(`canvas_sub_${track.id}`);
+      if (canvasSub) {
+        renderWaveOnCanvas(canvasSub, buf, mainStart, mainEnd, mainStart + subStart, mainStart + subEnd, '#38bdf8', '#38bdf844');
+      }
+    }
+
+    function renderWaveOnCanvas(canvas, buffer, viewStartSec, viewEndSec, highlightStartSec, highlightEndSec, waveColor, highlightColor) {
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width = canvas.clientWidth;
+      const height = canvas.height = canvas.clientHeight;
+      ctx.clearRect(0, 0, width, height);
+
+      const rawData = buffer.getChannelData(0);
+      const sampleRate = buffer.sampleRate;
+      const startSample = Math.floor(viewStartSec * sampleRate);
+      const endSample = Math.floor(viewEndSec * sampleRate);
+      const totalSamples = endSample - startSample;
+      const step = Math.ceil(totalSamples / width);
+      const amp = height / 2;
+
+      // ハイライト範囲の描画
+      const viewDuration = viewEndSec - viewStartSec;
+      const hLeft = ((highlightStartSec - viewStartSec) / viewDuration) * width;
+      const hRight = ((highlightEndSec - viewStartSec) / viewDuration) * width;
+      ctx.fillStyle = highlightColor;
+      ctx.fillRect(hLeft, 0, hRight - hLeft, height);
+
+      // 波形描画
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = waveColor;
+      ctx.beginPath();
+
+      for (let i = 0; i < width; i++) {
+        let min = 1.0, max = -1.0;
+        for (let j = 0; j < step; j++) {
+          const idx = startSample + (i * step) + j;
+          if (idx < rawData.length) {
+            const val = rawData[idx];
+            if (val < min) min = val;
+            if (val > max) max = val;
+          }
+        }
+        ctx.moveTo(i, (1 + min) * amp);
+        ctx.lineTo(i, (1 + max) * amp);
+      }
+      ctx.stroke();
     }
 
     function updateTrackField(id, field, value) {
@@ -844,132 +530,72 @@
       update(ref(db), updates);
     }
 
-    async function removeTrack(id) {
-      if (confirm("全端末からこの曲を削除しますか？")) {
-        await remove(ref(db, `tracks/${id}`));
+    function updateSubField(id, key, val) {
+      const track = audioFiles.find(t => t.id === id);
+      if (track && track.sections && track.sections[0]) {
+        track.sections[0][key] = val;
+        clearTimeout(updateTimer);
+        updateTimer = setTimeout(() => updateTrackField(id, 'sections', track.sections), 200);
       }
     }
 
     function stopAudio() {
       if (fadeOutTimeout) clearTimeout(fadeOutTimeout);
-      if (autoCountCheckInterval) clearInterval(autoCountCheckInterval);
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-      }
-      hasCountTriggered = false;
+      if (autoCountInterval) clearInterval(autoCountInterval);
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     }
 
     document.getElementById('mainTriggerBtn').addEventListener('click', () => {
-      if (audioFiles.length === 0) {
-        alert('「⚙️ 曲・詳細設定」タブから曲を追加してください！');
-        return;
-      }
-
-      let availableCandidates = [];
-
-      audioFiles.forEach(track => {
-        const sections = track.sections || [];
-        const activeSections = sections.filter(s => s.active);
-        activeSections.forEach(sec => {
-          availableCandidates.push({ track, sec });
-        });
-      });
-
-      if (availableCandidates.length === 0) {
-        alert('再生可能な設定済みの曲・区間がありません。設定画面でチェックボックスをオンにしてください。');
-        return;
-      }
-
-      const chosen = availableCandidates[Math.floor(Math.random() * availableCandidates.length)];
-      const { track, sec } = chosen;
-
-      playWithFade(track, sec, `【${sec.label}再生】${track.name}`);
+      if (audioFiles.length === 0) return alert('曲を追加してください');
+      const chosen = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+      playTrack(chosen);
     });
 
-    function playWithFade(track, sec, statusMsg) {
+    function playTrack(track) {
       stopAudio();
+      const mainStart = track.mainStartSec || 0;
+      const sec = (track.sections && track.sections[0]) ? track.sections[0] : {};
+      const startSec = mainStart + (sec.offsetStartSec || 0);
+      const endSec = mainStart + (sec.offsetEndSec || 4);
+      const triggerSec = mainStart + (sec.triggerOffsetSec || 0);
 
-      const statusEl = document.getElementById('statusText');
-      const targetMusicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
-      
-      const startSec = sec.startTotalSec !== undefined ? sec.startTotalSec : ((sec.startMin || 0) * 60 + (sec.startSec || 0));
-      const endSec = sec.endTotalSec !== undefined ? sec.endTotalSec : ((sec.endMin || 0) * 60 + (sec.endSec || 4));
-      const autoCount = sec.autoCount || false;
-      const triggerSec = sec.countTriggerSec !== undefined ? sec.countTriggerSec : startSec;
+      currentAudio = new Audio();
+      currentAudio.crossOrigin = "anonymous";
+      currentAudio.src = track.url;
+      currentAudio.currentTime = startSec;
 
-      if (audioCache.has(track.url)) {
-        currentAudio = audioCache.get(track.url);
-      } else {
-        currentAudio = new Audio();
-        currentAudio.crossOrigin = "anonymous";
-        currentAudio.src = track.url;
-      }
-
-      const durationSec = Math.max(0.5, endSec - startSec);
-      const fadeTime = 0.3;
-
-      currentAudio.onerror = () => {
-        statusEl.textContent = '❌ 音声の読み込みに失敗しました（URLをご確認ください）';
-      };
-
-      const startPlayback = () => {
-        currentAudio.currentTime = Math.min(startSec, (currentAudio.duration || 999) - 0.5);
-        currentAudio.volume = 0;
-        
-        currentAudio.play().then(() => {
-          // ⏱️ 再生時間監視ループ（自動カウントトリガー用）
-          if (autoCount) {
-            autoCountCheckInterval = setInterval(() => {
-              if (currentAudio && !hasCountTriggered) {
-                if (currentAudio.currentTime >= triggerSec) {
-                  hasCountTriggered = true;
-                  playOverlayCount(track.bpm, track.countVol, track.countVoice);
-                }
-              }
-            }, 30);
-          }
-
-          let fadeInStep = 0;
-          const fadeInInterval = setInterval(() => {
-            fadeInStep += 0.1;
-            if (fadeInStep >= 1) {
-              if (currentAudio) currentAudio.volume = targetMusicVol;
-              clearInterval(fadeInInterval);
-            } else if (currentAudio) {
-              currentAudio.volume = fadeInStep * targetMusicVol;
+      let triggered = false;
+      currentAudio.play().then(() => {
+        if (sec.autoCount) {
+          autoCountInterval = setInterval(() => {
+            if (currentAudio && !triggered && currentAudio.currentTime >= triggerSec) {
+              triggered = true;
+              playOverlayBeep(track.bpm || 120);
             }
-          }, (fadeTime * 1000) / 10);
+          }, 20);
+        }
 
-          const fadeOutStartTime = Math.max(0, (durationSec - fadeTime) * 1000);
-          fadeOutTimeout = setTimeout(() => {
-            if (!currentAudio) return;
-            let fadeOutStep = 1;
-            const fadeOutInterval = setInterval(() => {
-              fadeOutStep -= 0.1;
-              if (fadeOutStep <= 0) {
-                if (currentAudio) currentAudio.volume = 0;
-                clearInterval(fadeOutInterval);
-                stopAudio();
-                statusEl.textContent = `🟢 クラウド同期中（${audioFiles.length}曲共有済み）`;
-              } else if (currentAudio) {
-                currentAudio.volume = fadeOutStep * targetMusicVol;
-              }
-            }, (fadeTime * 1000) / 10);
-          }, fadeOutStartTime);
-        }).catch(() => {
-          statusEl.textContent = '⚠️ 画面を一度タップして再生を許可してください';
-        });
-      };
+        const durationMs = Math.max(500, (endSec - startSec) * 1000);
+        fadeOutTimeout = setTimeout(() => stopAudio(), durationMs);
+      });
+    }
 
-      if (currentAudio.readyState >= 1) {
-        startPlayback();
-      } else {
-        currentAudio.onloadedmetadata = startPlayback;
-      }
-
-      statusEl.textContent = statusMsg;
+    function playOverlayBeep(bpm) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const interval = 60 / bpm;
+        const now = ctx.currentTime;
+        for (let i = 0; i < 4; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = i === 3 ? 1200 : 800;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + i * interval);
+          osc.stop(now + i * interval + 0.08);
+        }
+      } catch(e) {}
     }
   </script>
 </body>
