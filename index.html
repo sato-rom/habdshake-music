@@ -61,6 +61,39 @@
     .page { display: none !important; width: 100%; max-width: 720px; }
     .page.active { display: flex !important; flex-direction: column; align-items: center; }
 
+    /* 🎲 再生モード選択ボックス */
+    .mode-select-box {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid #2a3754;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .mode-select-box label {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #38bdf8;
+      white-space: nowrap;
+    }
+
+    .mode-select-box select {
+      background: #0b0f19;
+      border: 1px solid #334155;
+      color: white;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 1rem;
+      font-weight: bold;
+      flex: 1;
+      outline: none;
+    }
+
     .main-trigger {
       width: 100%;
       height: 220px;
@@ -123,8 +156,8 @@
     .se-btn:active { transform: scale(0.95); }
     .se-btn.cheer { background: linear-gradient(135deg, #f59e0b, #d97706); }
     .se-btn.clap { background: linear-gradient(135deg, #10b981, #059669); }
-    .se-btn.whistle { background: linear-gradient(135deg, #ec4899, #db2777); }
-    .se-btn.fanfare { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .se-btn.hightouch { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+    .se-btn.chime { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
 
     .status-card, .settings-card {
       background-color: var(--card-bg);
@@ -318,19 +351,28 @@
 
   <!-- PAGE 1: メイン画面 -->
   <div id="pageMain" class="page active">
+
+    <!-- 🎲 選択モードの切替ボックス -->
+    <div class="mode-select-box">
+      <label for="playTrackSelect">🎵 再生する曲:</label>
+      <select id="playTrackSelect">
+        <option value="random">🎲 ランダムで選曲（おまかせ）</option>
+      </select>
+    </div>
+
     <button id="mainTriggerBtn" class="main-trigger" type="button">
       🎵 TOUCH ME!
       <span style="font-size: 1.1rem; font-weight: normal;">（1タップで即時再生）</span>
     </button>
 
-    <!-- 🗣️ 高音質リアル効果音ボタン -->
+    <!-- 🌿 自然体なフィニッシュ効果音ボタン -->
     <div class="se-section">
-      <div class="se-title">👏 フィニッシュ効果音 (生音・歓声)</div>
+      <div class="se-title">🤝 フィニッシュ効果音 (自然体)</div>
       <div class="se-grid">
-        <button class="se-btn cheer" data-se="cheer" type="button">🎉 歓声 (歓声・声援)</button>
-        <button class="se-btn clap" data-se="clap" type="button">👏 拍手 (大拍手)</button>
-        <button class="se-btn whistle" data-se="whistle" type="button">🎷 ホイッスル (笛)</button>
-        <button class="se-btn fanfare" data-se="fanfare" type="button">🎺 ファンファーレ</button>
+        <button class="se-btn cheer" data-se="cheer" type="button">🗣️ 「イエーイ！」</button>
+        <button class="se-btn clap" data-se="clap" type="button">👏 手拍子・拍手</button>
+        <button class="se-btn hightouch" data-se="hightouch" type="button">👋 ハイタッチ！</button>
+        <button class="se-btn chime" data-se="chime" type="button">✨ ポンッ (合図音)</button>
       </div>
     </div>
 
@@ -377,18 +419,14 @@
 
     const decodedBuffers = new Map();
 
-    // 🔊 リアル効果音のキャッシュ＆ロード
-    const realAudioSE = {
-      cheer: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),  // 人々のリアル歓声
-      clap: new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3'),   // リアル大拍手
-      whistle: new Audio('https://assets.mixkit.co/active_storage/sfx/2153/2153-preview.mp3'),// 審判・ダンスホイッスル
-      fanfare: new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3') // ファンファーレ
+    const naturalAudioSE = {
+      cheer: new Audio('https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3'),
+      clap: new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3'),
+      hightouch: new Audio('https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3'),
+      chime: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3')
     };
 
-    // 音源プリロード
-    Object.values(realAudioSE).forEach(audio => {
-      audio.preload = 'auto';
-    });
+    Object.values(naturalAudioSE).forEach(audio => { audio.preload = 'auto'; });
 
     function switchTab(tabName) {
       document.getElementById('tabMain').classList.toggle('active', tabName === 'main');
@@ -434,9 +472,27 @@
     onValue(tracksDbRef, (snapshot) => {
       const data = snapshot.val();
       audioFiles = data ? Object.values(data) : [];
+      updateMainTrackSelector();
       renderList();
       document.getElementById('statusText').textContent = audioFiles.length > 0 ? `🟢 クラウド同期中（${audioFiles.length}曲）` : '待機中';
     });
+
+    // 🎲 メイン画面の曲選択ドロップダウンの更新
+    function updateMainTrackSelector() {
+      const select = document.getElementById('playTrackSelect');
+      const currentSelected = select.value;
+      
+      select.innerHTML = '<option value="random">🎲 ランダムで選曲（おまかせ）</option>';
+      
+      audioFiles.forEach((track, index) => {
+        const opt = document.createElement('option');
+        opt.value = track.id;
+        opt.textContent = `🎯 ${index + 1}. ${track.name}`;
+        select.appendChild(opt);
+      });
+
+      select.value = currentSelected;
+    }
 
     document.getElementById('addTrackBtn').addEventListener('click', async () => {
       const name = document.getElementById("trackNameInput").value.trim();
@@ -485,7 +541,6 @@
             <button class="fine-btn del-btn" data-id="${track.id}" style="color:#ef4444; border-color:#ef4444;">削除</button>
           </div>
 
-          <!-- 🔊 音量調整エリア -->
           <div class="volume-box">
             <div class="slider-row">
               <label>🎵 曲の音量</label>
@@ -499,7 +554,6 @@
             </div>
           </div>
 
-          <!-- STEP 1: 曲全体から長めに大まかカット -->
           <div class="step-box">
             <div class="step-title">
               <span>ステップ1: 曲全体の切り出し（使用する大枠範囲）</span>
@@ -516,7 +570,6 @@
             </div>
           </div>
 
-          <!-- STEP 2: カットした部分だけを拡大して8拍・秒数・BPMを細密編集 -->
           <div class="step-box" style="border-color:#38bdf8;">
             <div class="step-title" style="color:#38bdf8;">
               <span>ステップ2: 拡大波形での8拍・裏カウント細密設定</span>
@@ -709,10 +762,21 @@
       if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     }
 
+    // 🎲 メインボタン押下時の再生制御（選曲 / ランダム判定）
     document.getElementById('mainTriggerBtn').addEventListener('click', () => {
-      if (audioFiles.length === 0) return alert('曲を追加してください');
-      const chosen = audioFiles[Math.floor(Math.random() * audioFiles.length)];
-      playTrack(chosen);
+      if (audioFiles.length === 0) return alert('⚙️ 曲・詳細波形編集タブから曲を追加してください');
+      
+      const selectVal = document.getElementById('playTrackSelect').value;
+      let chosenTrack = null;
+
+      if (selectVal === 'random') {
+        chosenTrack = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+      } else {
+        chosenTrack = audioFiles.find(t => t.id === selectVal);
+        if (!chosenTrack) chosenTrack = audioFiles[0];
+      }
+
+      playTrack(chosenTrack);
     });
 
     function playTrack(track) {
@@ -725,6 +789,8 @@
 
       const musicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
       const countVol = track.countVol !== undefined ? track.countVol : 1.0;
+
+      document.getElementById('statusText').textContent = `▶ 再生中: ${track.name}`;
 
       currentAudio = new Audio();
       currentAudio.crossOrigin = "anonymous";
@@ -744,7 +810,10 @@
         }
 
         const durationMs = Math.max(500, (endSec - startSec) * 1000);
-        fadeOutTimeout = setTimeout(() => stopAudio(), durationMs);
+        fadeOutTimeout = setTimeout(() => {
+          stopAudio();
+          document.getElementById('statusText').textContent = `🟢 クラウド同期中（${audioFiles.length}曲）`;
+        }, durationMs);
       });
     }
 
@@ -773,14 +842,13 @@
       } catch(e) {}
     }
 
-    // 🗣️ 本物のリアル音声効果音再生
     document.querySelectorAll('.se-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const type = e.target.closest('.se-btn').dataset.se;
-        if (realAudioSE[type]) {
-          const audio = realAudioSE[type];
+        if (naturalAudioSE[type]) {
+          const audio = naturalAudioSE[type];
           audio.currentTime = 0;
-          audio.volume = 0.9;
+          audio.volume = 0.8;
           audio.play().catch(() => {});
         }
       });
