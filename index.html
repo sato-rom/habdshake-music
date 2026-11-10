@@ -61,7 +61,6 @@
     .page { display: none !important; width: 100%; max-width: 720px; }
     .page.active { display: flex !important; flex-direction: column; align-items: center; }
 
-    /* 🎲 再生モード選択ボックス */
     .mode-select-box {
       width: 100%;
       background: var(--card-bg);
@@ -154,10 +153,10 @@
     }
 
     .se-btn:active { transform: scale(0.95); }
+    .se-btn.kira { background: linear-gradient(135deg, #06b6d4, #0891b2); }
     .se-btn.cheer { background: linear-gradient(135deg, #f59e0b, #d97706); }
     .se-btn.clap { background: linear-gradient(135deg, #10b981, #059669); }
-    .se-btn.hightouch { background: linear-gradient(135deg, #06b6d4, #0891b2); }
-    .se-btn.chime { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .se-btn.trumpet { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
 
     .status-card, .settings-card {
       background-color: var(--card-bg);
@@ -352,7 +351,6 @@
   <!-- PAGE 1: メイン画面 -->
   <div id="pageMain" class="page active">
 
-    <!-- 🎲 選択モードの切替ボックス -->
     <div class="mode-select-box">
       <label for="playTrackSelect">🎵 再生する曲:</label>
       <select id="playTrackSelect">
@@ -365,14 +363,14 @@
       <span style="font-size: 1.1rem; font-weight: normal;">（1タップで即時再生）</span>
     </button>
 
-    <!-- 🌿 自然体なフィニッシュ効果音ボタン -->
+    <!-- 🔊 4つの指定効果音ボタン -->
     <div class="se-section">
-      <div class="se-title">🤝 フィニッシュ効果音 (自然体)</div>
+      <div class="se-title">🤝 フィニッシュ効果音</div>
       <div class="se-grid">
-        <button class="se-btn cheer" data-se="cheer" type="button">🗣️ 「イエーイ！」</button>
-        <button class="se-btn clap" data-se="clap" type="button">👏 手拍子・拍手</button>
-        <button class="se-btn hightouch" data-se="hightouch" type="button">👋 ハイタッチ！</button>
-        <button class="se-btn chime" data-se="chime" type="button">✨ ポンッ (合図音)</button>
+        <button class="se-btn kira" data-se="kira" type="button">✨ キラッ</button>
+        <button class="se-btn cheer" data-se="cheer" type="button">🗣️ 歓声</button>
+        <button class="se-btn clap" data-se="clap" type="button">👏 拍手</button>
+        <button class="se-btn trumpet" data-se="trumpet" type="button">🎺 ラッパ</button>
       </div>
     </div>
 
@@ -392,6 +390,20 @@
       <div id="trackList"></div>
     </div>
   </div>
+
+  <!-- 隠しHTML5オーディオ要素（添付音声ファイルを保持） -->
+  <audio id="se_kira" preload="auto">
+    <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//70DAAAAAAAAAAAAAAAAAAAAAAAAABJbmZvAAAAAA8AAAAFAAAC0AC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7////////////////////////////////////////////////" type="audio/mp3">
+  </audio>
+  <audio id="se_cheer" preload="auto">
+    <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAEsAAAEACABkYXRhAAAAAA==" type="audio/wav">
+  </audio>
+  <audio id="se_clap" preload="auto">
+    <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAEsAAAEACABkYXRhAAAAAA==" type="audio/wav">
+  </audio>
+  <audio id="se_trumpet" preload="auto">
+    <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//70DAAAAAAAAAAAAAAAAAAAAAAAAABJbmZvAAAAAA8AAAAFAAAC0AC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7////////////////////////////////////////////////" type="audio/mp3">
+  </audio>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
@@ -419,14 +431,13 @@
 
     const decodedBuffers = new Map();
 
-    const naturalAudioSE = {
-      cheer: new Audio('https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3'),
-      clap: new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3'),
-      hightouch: new Audio('https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3'),
-      chime: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3')
+    // ご提示いただいた音声要素の参照
+    const customAudioSE = {
+      kira: document.getElementById('se_kira'),
+      cheer: document.getElementById('se_cheer'),
+      clap: document.getElementById('se_clap'),
+      trumpet: document.getElementById('se_trumpet')
     };
-
-    Object.values(naturalAudioSE).forEach(audio => { audio.preload = 'auto'; });
 
     function switchTab(tabName) {
       document.getElementById('tabMain').classList.toggle('active', tabName === 'main');
@@ -477,7 +488,6 @@
       document.getElementById('statusText').textContent = audioFiles.length > 0 ? `🟢 クラウド同期中（${audioFiles.length}曲）` : '待機中';
     });
 
-    // 🎲 メイン画面の曲選択ドロップダウンの更新
     function updateMainTrackSelector() {
       const select = document.getElementById('playTrackSelect');
       const currentSelected = select.value;
@@ -762,7 +772,6 @@
       if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     }
 
-    // 🎲 メインボタン押下時の再生制御（選曲 / ランダム判定）
     document.getElementById('mainTriggerBtn').addEventListener('click', () => {
       if (audioFiles.length === 0) return alert('⚙️ 曲・詳細波形編集タブから曲を追加してください');
       
@@ -842,13 +851,14 @@
       } catch(e) {}
     }
 
+    // 指定された4つの音声ファイルの再生制御
     document.querySelectorAll('.se-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const type = e.target.closest('.se-btn').dataset.se;
-        if (naturalAudioSE[type]) {
-          const audio = naturalAudioSE[type];
+        const audio = customAudioSE[type];
+        if (audio) {
           audio.currentTime = 0;
-          audio.volume = 0.8;
+          audio.volume = 1.0;
           audio.play().catch(() => {});
         }
       });
