@@ -82,7 +82,6 @@
 
     .main-trigger:active { transform: scale(0.96); }
 
-    /* 🔊 効果音ボタンエリア */
     .se-section {
       width: 100%;
       background: var(--card-bg);
@@ -209,6 +208,57 @@
       flex-wrap: wrap;
     }
 
+    .volume-box {
+      background: #0b0f19;
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1px solid #2a3754;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .slider-row label {
+      width: 120px;
+      color: var(--text-sub);
+      font-size: 0.9rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 12px;
+      background: #1e293b;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+    }
+
+    .val-text {
+      width: 45px;
+      font-size: 0.9rem;
+      text-align: right;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+
     .small-num-input {
       background: #0b0f19;
       border: 1px solid #334155;
@@ -273,13 +323,13 @@
       <span style="font-size: 1.1rem; font-weight: normal;">（1タップで即時再生）</span>
     </button>
 
-    <!-- 🔊 終わった後の効果音ボタン -->
+    <!-- 🗣️ 高音質リアル効果音ボタン -->
     <div class="se-section">
-      <div class="se-title">👏 フィニッシュ効果音</div>
+      <div class="se-title">👏 フィニッシュ効果音 (生音・歓声)</div>
       <div class="se-grid">
-        <button class="se-btn cheer" data-se="cheer" type="button">🎉 歓声</button>
-        <button class="se-btn clap" data-se="clap" type="button">👏 拍手</button>
-        <button class="se-btn whistle" data-se="whistle" type="button">🎷 ホイッスル</button>
+        <button class="se-btn cheer" data-se="cheer" type="button">🎉 歓声 (歓声・声援)</button>
+        <button class="se-btn clap" data-se="clap" type="button">👏 拍手 (大拍手)</button>
+        <button class="se-btn whistle" data-se="whistle" type="button">🎷 ホイッスル (笛)</button>
         <button class="se-btn fanfare" data-se="fanfare" type="button">🎺 ファンファーレ</button>
       </div>
     </div>
@@ -326,6 +376,19 @@
     let updateTimer = null;
 
     const decodedBuffers = new Map();
+
+    // 🔊 リアル効果音のキャッシュ＆ロード
+    const realAudioSE = {
+      cheer: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),  // 人々のリアル歓声
+      clap: new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3'),   // リアル大拍手
+      whistle: new Audio('https://assets.mixkit.co/active_storage/sfx/2153/2153-preview.mp3'),// 審判・ダンスホイッスル
+      fanfare: new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3') // ファンファーレ
+    };
+
+    // 音源プリロード
+    Object.values(realAudioSE).forEach(audio => {
+      audio.preload = 'auto';
+    });
 
     function switchTab(tabName) {
       document.getElementById('tabMain').classList.toggle('active', tabName === 'main');
@@ -383,7 +446,9 @@
       const directUrl = convertToDirectLink(rawUrl);
       const id = "track_" + Date.now();
       const trackData = {
-        id, name, url: directUrl, bpm: 120, // 👈 BPM基本設定を維持
+        id, name, url: directUrl, bpm: 120,
+        countVol: 1.0,
+        musicVol: 1.0,
         mainStartSec: 0, mainEndSec: 30,
         sections: [
           { id: 'sec_8', label: '8拍使用区間', active: true, offsetStartSec: 0, offsetEndSec: 4, autoCount: true, triggerOffsetSec: 0 }
@@ -395,7 +460,7 @@
     });
 
     function renderList() {
-      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
       const container = document.getElementById('trackList');
       container.innerHTML = '';
 
@@ -407,6 +472,9 @@
           label: '8拍区間', active: true, offsetStartSec: 0, offsetEndSec: 4, autoCount: true, triggerOffsetSec: 0
         };
 
+        const countVol = track.countVol !== undefined ? track.countVol : 1.0;
+        const musicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
+
         const mainStart = track.mainStartSec || 0;
         const mainEnd = track.mainEndSec || 30;
         const selectedDuration = Math.max(0.1, mainEnd - mainStart);
@@ -415,6 +483,20 @@
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <strong style="font-size:1.1rem; color:#f8fafc;">${index + 1}. ${track.name}</strong>
             <button class="fine-btn del-btn" data-id="${track.id}" style="color:#ef4444; border-color:#ef4444;">削除</button>
+          </div>
+
+          <!-- 🔊 音量調整エリア -->
+          <div class="volume-box">
+            <div class="slider-row">
+              <label>🎵 曲の音量</label>
+              <input type="range" min="0" max="1" step="0.01" value="${musicVol}" class="vol-input" data-id="${track.id}" data-key="musicVol">
+              <span class="val-text" id="disp_musicVol_${track.id}">${Math.round(musicVol * 100)}%</span>
+            </div>
+            <div class="slider-row">
+              <label>🗣️ カウント音量</label>
+              <input type="range" min="0" max="1" step="0.01" value="${countVol}" class="vol-input" data-id="${track.id}" data-key="countVol">
+              <span class="val-text" id="disp_countVol_${track.id}">${Math.round(countVol * 100)}%</span>
+            </div>
           </div>
 
           <!-- STEP 1: 曲全体から長めに大まかカット -->
@@ -431,7 +513,6 @@
               <input type="number" step="0.1" value="${mainStart.toFixed(2)}" class="small-num-input input-main" data-id="${track.id}" data-key="mainStartSec">
               <label style="font-size:0.85rem;">終了:</label>
               <input type="number" step="0.1" value="${mainEnd.toFixed(2)}" class="small-num-input input-main" data-id="${track.id}" data-key="mainEndSec">
-              <span style="font-size:0.8rem; color:var(--text-sub); margin-left:auto;">(切り出し範囲を絞ると下図が拡大されます)</span>
             </div>
           </div>
 
@@ -442,7 +523,6 @@
               <span>再生範囲: ${formatTime(mainStart + (sec.offsetStartSec||0))} 〜 ${formatTime(mainStart + (sec.offsetEndSec||4))}</span>
             </div>
 
-            <!-- 🎵 復活：BPM入力項目 -->
             <div class="ctrl-row" style="background:#0b0f19; padding:8px 12px; border-radius:6px; justify-content:space-between;">
               <span style="font-size:0.9rem; color:#38bdf8; font-weight:bold;">⏱️ カウントBPM設定:</span>
               <div style="display:flex; align-items:center; gap:6px;">
@@ -483,8 +563,19 @@
         drawWaveforms(track);
       });
 
-      // イベント割り当て
       container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', (e) => remove(ref(db, `tracks/${e.target.dataset.id}`))));
+
+      container.querySelectorAll('.vol-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const { id, key } = e.target.dataset;
+          const val = parseFloat(e.target.value);
+          const disp = document.getElementById(`disp_${key}_${id}`);
+          if (disp) disp.textContent = `${Math.round(val * 100)}%`;
+
+          clearTimeout(updateTimer);
+          updateTimer = setTimeout(() => updateTrackField(id, key, val), 200);
+        });
+      });
 
       container.querySelectorAll('.input-main').forEach(input => {
         input.addEventListener('change', (e) => {
@@ -493,7 +584,6 @@
         });
       });
 
-      // BPM更新イベント
       container.querySelectorAll('.input-bpm').forEach(input => {
         input.addEventListener('change', (e) => {
           const id = e.target.dataset.id;
@@ -633,10 +723,14 @@
       const endSec = mainStart + (sec.offsetEndSec || 4);
       const triggerSec = mainStart + (sec.triggerOffsetSec || 0);
 
+      const musicVol = track.musicVol !== undefined ? track.musicVol : 1.0;
+      const countVol = track.countVol !== undefined ? track.countVol : 1.0;
+
       currentAudio = new Audio();
       currentAudio.crossOrigin = "anonymous";
       currentAudio.src = track.url;
       currentAudio.currentTime = startSec;
+      currentAudio.volume = musicVol;
 
       let triggered = false;
       currentAudio.play().then(() => {
@@ -644,7 +738,7 @@
           autoCountInterval = setInterval(() => {
             if (currentAudio && !triggered && currentAudio.currentTime >= triggerSec) {
               triggered = true;
-              playOverlayBeep(track.bpm || 120);
+              playOverlayBeep(track.bpm || 120, countVol);
             }
           }, 20);
         }
@@ -654,122 +748,43 @@
       });
     }
 
-    function playOverlayBeep(bpm) {
+    function playOverlayBeep(bpm, volumeRatio) {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const ctx = new AudioCtx();
         const interval = 60 / (bpm || 120);
         const now = ctx.currentTime;
+        const vol = volumeRatio !== undefined ? volumeRatio : 1.0;
+
         for (let i = 0; i < 4; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.frequency.value = i === 3 ? 1200 : 800;
+
+          const start = now + i * interval;
+          gain.gain.setValueAtTime(0.3 * vol, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.08);
+
           osc.connect(gain);
           gain.connect(ctx.destination);
-          osc.start(now + i * interval);
-          osc.stop(now + i * interval + 0.08);
+          osc.start(start);
+          osc.stop(start + 0.08);
         }
       } catch(e) {}
     }
 
-    // 🔊 合成効果音エンジン（Web Audio API）
+    // 🗣️ 本物のリアル音声効果音再生
     document.querySelectorAll('.se-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const type = e.target.closest('.se-btn').dataset.se;
-        playSE(type);
+        if (realAudioSE[type]) {
+          const audio = realAudioSE[type];
+          audio.currentTime = 0;
+          audio.volume = 0.9;
+          audio.play().catch(() => {});
+        }
       });
     });
-
-    function playSE(type) {
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioCtx();
-        const now = ctx.currentTime;
-
-        if (type === 'cheer') {
-          // 歓声（ノイズ＋ピッチスイープ）
-          const bufferSize = ctx.sampleRate * 1.5;
-          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-          const data = buffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-          const noise = ctx.createBufferSource();
-          noise.buffer = buffer;
-
-          const filter = ctx.createBiquadFilter();
-          filter.type = 'bandpass';
-          filter.frequency.setValueAtTime(800, now);
-          filter.Q.setValueAtTime(3, now);
-
-          const gain = ctx.createGain();
-          gain.gain.setValueAtTime(0, now);
-          gain.gain.linearRampToValueAtTime(0.4, now + 0.2);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
-
-          noise.connect(filter);
-          filter.connect(gain);
-          gain.connect(ctx.destination);
-          noise.start(now);
-
-        } else if (type === 'clap') {
-          // 拍手（連打ノイズ）
-          for (let i = 0; i < 8; i++) {
-            const delay = i * 0.08 + Math.random() * 0.03;
-            const bufferSize = ctx.sampleRate * 0.1;
-            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let k = 0; k < bufferSize; k++) data[k] = Math.random() * 2 - 1;
-
-            const noise = ctx.createBufferSource();
-            noise.buffer = buffer;
-            const gain = ctx.createGain();
-            gain.gain.setValueAtTime(0.3, now + delay);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.08);
-
-            noise.connect(gain);
-            gain.connect(ctx.destination);
-            noise.start(now + delay);
-          }
-
-        } else if (type === 'whistle') {
-          // ホイッスル（高音2音階）
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(2400, now);
-          osc.frequency.setValueAtTime(2800, now + 0.15);
-
-          gain.gain.setValueAtTime(0.3, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.6);
-
-        } else if (type === 'fanfare') {
-          // ファンファーレ（ド・ミ・ソ・ド）
-          const notes = [523.25, 659.25, 783.99, 1046.50];
-          notes.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.value = freq;
-
-            const start = now + idx * 0.12;
-            const dur = idx === 3 ? 0.6 : 0.12;
-
-            gain.gain.setValueAtTime(0.3, start);
-            gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
-
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(start);
-            osc.stop(start + dur);
-          });
-        }
-      } catch(e) {}
-    }
   </script>
 </body>
 </html>
