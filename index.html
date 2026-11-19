@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>通過検知＆サウンドアプリ</title>
+  <title>サウンド＆カウントコントローラー</title>
   <style>
     * {
       box-sizing: border-box;
@@ -17,115 +17,68 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
-      height: 100dvh;
-      overflow: hidden;
+      min-height: 100dvh;
+      padding: 20px 16px;
+      justify-content: center;
+      align-items: center;
     }
 
-    #startOverlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.96);
+    .container {
+      width: 100%;
+      max-width: 440px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 24px;
+      padding: 22px 18px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      padding: 24px;
-      text-align: center;
+      gap: 18px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
     }
 
-    #startBtn {
-      margin-top: 24px;
-      padding: 18px 40px;
-      font-size: 1.25rem;
+    h1 {
+      font-size: 1.3rem;
+      text-align: center;
+      color: #38bdf8;
+    }
+
+    .counter-box {
+      background: #0f172a;
+      border: 2px solid #334155;
+      border-radius: 20px;
+      padding: 18px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .counter-box.triggered {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.15);
+    }
+
+    .count-numbers {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: #38bdf8;
+      margin: 4px 0;
+    }
+
+    .count-tap-btn {
+      width: 100%;
+      padding: 18px;
+      margin-top: 10px;
+      font-size: 1.2rem;
       font-weight: bold;
       color: #fff;
       background: linear-gradient(135deg, #06b6d4, #3b82f6);
       border: none;
-      border-radius: 50px;
-      box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
       cursor: pointer;
     }
 
-    .camera-wrapper {
-      position: relative;
-      flex: 1;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    #detectZone {
-      position: absolute;
-      width: 36%;
-      height: 65%;
-      border: 3px dashed #38bdf8;
-      border-radius: 16px;
-      background: rgba(56, 189, 248, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-      pointer-events: none;
-    }
-
-    #detectZone.active {
-      border: 4px solid #10b981;
-      background: rgba(16, 185, 129, 0.35);
-      transform: scale(1.03);
-    }
-
-    #detectZone.triggered {
-      border: 5px solid #f59e0b;
-      background: rgba(245, 158, 11, 0.5);
-    }
-
-    .zone-label {
-      background: rgba(15, 23, 42, 0.8);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #e2e8f0;
-    }
-
-    #counterHud {
-      position: absolute;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.88);
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      padding: 10px 24px;
-      border-radius: 30px;
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      z-index: 10;
-    }
-
-    #currentCount {
-      font-size: 2rem;
-      font-weight: 800;
-      color: #38bdf8;
-    }
-
-    .controls {
-      background: #1e293b;
-      padding: 14px 16px;
-      border-top: 1px solid #334155;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 20;
+    .count-tap-btn:active {
+      transform: scale(0.98);
     }
 
     .ctrl-row {
@@ -133,7 +86,35 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      font-size: 0.88rem;
+      font-size: 0.9rem;
+    }
+
+    .url-input-group {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+    }
+
+    #musicUrlInput {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #f8fafc;
+      padding: 9px 10px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+    }
+
+    #loadUrlBtn {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 0 14px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
     }
 
     .num-control {
@@ -143,8 +124,8 @@
     }
 
     .step-btn {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       border: 1px solid #475569;
       background: #0f172a;
@@ -154,11 +135,11 @@
       cursor: pointer;
     }
 
-    #targetCountDisplay {
-      font-size: 1.25rem;
+    .val-badge {
+      font-size: 1.1rem;
       font-weight: bold;
       color: #f59e0b;
-      min-width: 44px;
+      min-width: 64px;
       text-align: center;
     }
 
@@ -169,38 +150,27 @@
 
     .btn-group {
       display: flex;
-      gap: 8px;
+      gap: 10px;
     }
 
     .action-btn {
       flex: 1;
-      padding: 11px 6px;
+      padding: 13px 8px;
       border-radius: 12px;
       border: none;
-      font-size: 0.85rem;
+      font-size: 0.95rem;
       font-weight: bold;
       cursor: pointer;
-      white-space: nowrap;
+    }
+
+    #playStopBtn {
+      background: #10b981;
+      color: #0f172a;
     }
 
     #resetBtn {
       background: #334155;
       color: #f8fafc;
-    }
-
-    #selectFileBtn {
-      background: #10b981;
-      color: #0f172a;
-    }
-
-    #testSoundBtn {
-      background: #0284c7;
-      color: #fff;
-    }
-
-    #cameraSwitchBtn {
-      background: #475569;
-      color: #fff;
     }
 
     #songStatus {
@@ -215,316 +185,192 @@
 </head>
 <body>
 
-  <div id="startOverlay">
-    <h1 style="font-size: 1.6rem; margin-bottom: 10px;">🎵 通過検知ミュージック</h1>
-    <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6;">
-      カメラの中央枠を人が指定回数通ると<br>設定した曲を再生します。<br>
-      <span style="color: #f59e0b; font-size: 0.85rem;">※iPhoneは消音モードを解除してください</span>
-    </p>
-    <button id="startBtn" type="button">▶ カメラを起動して開始</button>
-  </div>
+  <div class="container">
+    <h1>🎵 サウンド＆カウント操作</h1>
 
-  <div class="camera-wrapper">
-    <video id="video" autoplay playsinline muted></video>
-
-    <div id="counterHud">
-      <span style="font-size: 0.9rem; color: #94a3b8;">通過数:</span>
-      <span id="currentCount">0</span>
-      <span style="font-size: 1rem; color: #cbd5e1;">/ <span id="hudTarget">3</span> 回</span>
+    <!-- カウント表示＆タップエリア -->
+    <div class="counter-box" id="counterBox">
+      <div style="font-size: 0.85rem; color: #94a3b8;">現在のカウント / 目標回数</div>
+      <div class="count-numbers">
+        <span id="currentCount">0</span>
+        <span style="font-size: 1.2rem; color: #cbd5e1;">/ <span id="targetHud">3</span> 回</span>
+      </div>
+      <button class="count-tap-btn" id="countUpBtn" type="button">＋1 カウントする</button>
     </div>
 
-    <div id="detectZone">
-      <span class="zone-label" id="zoneStatus">待機中</span>
+    <!-- 曲URL入力 -->
+    <div class="ctrl-row">
+      <span style="white-space: nowrap;">🔗 曲URL:</span>
+      <div class="url-input-group">
+        <input type="text" id="musicUrlInput" value="./music.mp3" placeholder="./music.mp3 または https://..." />
+        <button id="loadUrlBtn" type="button">読込</button>
+      </div>
     </div>
-  </div>
 
-  <div class="controls">
+    <div id="songStatus">🎵 読込待機中...</div>
+
     <!-- 鳴らす回数の設定 -->
     <div class="ctrl-row">
       <span>🔔 曲を鳴らす回数:</span>
       <div class="num-control">
-        <button class="step-btn" id="minusBtn" type="button">−</button>
-        <span id="targetCountDisplay">3回</span>
-        <button class="step-btn" id="plusBtn" type="button">＋</button>
+        <button class="step-btn" id="countMinusBtn" type="button">−</button>
+        <span class="val-badge" id="targetCountDisplay">3回</span>
+        <button class="step-btn" id="countPlusBtn" type="button">＋</button>
       </div>
     </div>
 
-    <!-- 感度スライダー -->
+    <!-- 曲の長さ（再生秒数）の設定 -->
     <div class="ctrl-row">
-      <span style="white-space: nowrap;">🎚️ 検知感度:</span>
-      <input type="range" id="sensitivitySlider" min="1" max="10" value="5" />
-      <span id="sensitivityVal" style="width: 24px; text-align: right;">5</span>
+      <span>⏱️ 曲の長さ:</span>
+      <div class="num-control">
+        <button class="step-btn" id="durMinusBtn" type="button">−</button>
+        <span class="val-badge" id="durationDisplay">最後まで</span>
+        <button class="step-btn" id="durPlusBtn" type="button">＋</button>
+      </div>
     </div>
 
-    <!-- 曲ファイル選択状態 -->
-    <div id="songStatus">🎵 現在の曲: music.mp3（または右のボタンで選択）</div>
-    <input type="file" id="audioFileInput" accept="audio/*" style="display: none;" />
+    <!-- 音量スライダー -->
+    <div class="ctrl-row">
+      <span style="white-space: nowrap;">🔊 音量:</span>
+      <input type="range" id="volumeSlider" min="0" max="100" value="100" />
+      <span id="volumeVal" style="width: 42px; text-align: right;">100%</span>
+    </div>
 
-    <!-- ボタン群 -->
+    <!-- 再生・リセットボタン -->
     <div class="btn-group">
-      <button class="action-btn" id="selectFileBtn" type="button">📁 曲を選ぶ</button>
-      <button class="action-btn" id="testSoundBtn" type="button">▶ 試聴/停止</button>
+      <button class="action-btn" id="playStopBtn" type="button">▶ 今すぐ再生 / 停止</button>
       <button class="action-btn" id="resetBtn" type="button">🔄 リセット</button>
-      <button class="action-btn" id="cameraSwitchBtn" type="button">📷 切替</button>
     </div>
   </div>
 
-  <canvas id="procCanvas" width="160" height="120" style="display: none;"></canvas>
-
   <script>
-    // =========================================================
-    // ★ GitHub上の同じフォルダに置いた曲のファイル名を指定できます
-    // （例: "./music.mp3" や "./song.m4a" など半角英数字推奨）
-    // =========================================================
-    const DEFAULT_MUSIC_SRC = "./music.mp3";
+    const INITIAL_MUSIC_URL = "./music.mp3";
 
-    const startOverlay = document.getElementById("startOverlay");
-    const startBtn = document.getElementById("startBtn");
-    const video = document.getElementById("video");
-    const procCanvas = document.getElementById("procCanvas");
-    const ctx = procCanvas.getContext("2d", { willReadFrequently: true });
-
-    const detectZone = document.getElementById("detectZone");
-    const zoneStatus = document.getElementById("zoneStatus");
+    const counterBox = document.getElementById("counterBox");
     const currentCountEl = document.getElementById("currentCount");
-    const hudTargetEl = document.getElementById("hudTarget");
+    const targetHud = document.getElementById("targetHud");
+    const countUpBtn = document.getElementById("countUpBtn");
+
+    const musicUrlInput = document.getElementById("musicUrlInput");
+    const loadUrlBtn = document.getElementById("loadUrlBtn");
+    const songStatus = document.getElementById("songStatus");
+
+    const countMinusBtn = document.getElementById("countMinusBtn");
+    const countPlusBtn = document.getElementById("countPlusBtn");
     const targetCountDisplay = document.getElementById("targetCountDisplay");
 
-    const minusBtn = document.getElementById("minusBtn");
-    const plusBtn = document.getElementById("plusBtn");
-    const sensitivitySlider = document.getElementById("sensitivitySlider");
-    const sensitivityVal = document.getElementById("sensitivityVal");
+    const durMinusBtn = document.getElementById("durMinusBtn");
+    const durPlusBtn = document.getElementById("durPlusBtn");
+    const durationDisplay = document.getElementById("durationDisplay");
+
+    const volumeSlider = document.getElementById("volumeSlider");
+    const volumeVal = document.getElementById("volumeVal");
+
+    const playStopBtn = document.getElementById("playStopBtn");
     const resetBtn = document.getElementById("resetBtn");
-    const selectFileBtn = document.getElementById("selectFileBtn");
-    const audioFileInput = document.getElementById("audioFileInput");
-    const testSoundBtn = document.getElementById("testSoundBtn");
-    const cameraSwitchBtn = document.getElementById("cameraSwitchBtn");
-    const songStatus = document.getElementById("songStatus");
 
     let targetCount = 3;
     let currentCount = 0;
-    let sensitivity = 5;
-    let useFrontCamera = false;
-    let currentStream = null;
+    let playDurationSec = 0;
+    let currentVolume = 1.0;
+    let stopTimerId = null;
 
-    let prevFrameData = null;
-    let isPersonInZone = false;
-    let clearFrames = 0;
-
-    // 音楽再生用のAudioオブジェクト
     const musicPlayer = new Audio();
-    musicPlayer.src = DEFAULT_MUSIC_SRC;
+    musicPlayer.crossOrigin = "anonymous";
     musicPlayer.preload = "auto";
-    musicPlayer.volume = 1.0;
 
-    musicPlayer.addEventListener("error", () => {
-      songStatus.textContent = "⚠️ 曲未読込：「📁 曲を選ぶ」から音楽ファイルを選択してください";
-      songStatus.style.color = "#f59e0b";
-    });
+    function loadMusicFromUrl(url) {
+      const trimmed = url.trim();
+      if (!trimmed) return;
 
-    musicPlayer.addEventListener("canplaythrough", () => {
-      if (songStatus.textContent.includes("未読込")) {
-        songStatus.textContent = "🎵 準備完了";
-        songStatus.style.color = "#10b981";
-      }
-    });
+      stopMusic();
+      musicPlayer.src = encodeURI(trimmed);
+      musicPlayer.volume = currentVolume;
+      musicPlayer.load();
 
-    // スマホの音声ロックを解除する関数
-    function unlockAudio() {
-      musicPlayer.play().then(() => {
-        musicPlayer.pause();
-        musicPlayer.currentTime = 0;
-      }).catch(() => {});
+      songStatus.textContent = `⏳ 読込中: ${trimmed}`;
+      songStatus.style.color = "#38bdf8";
     }
 
-    // 指定回数達成時に曲を再生する関数
+    musicPlayer.addEventListener("canplaythrough", () => {
+      songStatus.textContent = `✅ 準備OK: ${musicUrlInput.value}`;
+      songStatus.style.color = "#10b981";
+    });
+
+    musicPlayer.addEventListener("error", () => {
+      songStatus.textContent = "❌ 読込エラー: URLまたはファイル名を確認してください";
+      songStatus.style.color = "#ef4444";
+    });
+
+    musicPlayer.addEventListener("ended", () => {
+      counterBox.classList.remove("triggered");
+    });
+
     function playMusic() {
+      if (stopTimerId) clearTimeout(stopTimerId);
       musicPlayer.currentTime = 0;
-      musicPlayer.volume = 1.0;
-      musicPlayer.play().catch(err => {
-        songStatus.textContent = "⚠️ 再生できませんでした（「📁 曲を選ぶ」で選択してください）";
-        songStatus.style.color = "#ef4444";
+      musicPlayer.volume = currentVolume;
+
+      musicPlayer.play().then(() => {
+        counterBox.classList.add("triggered");
+        if (playDurationSec > 0) {
+          stopTimerId = setTimeout(() => {
+            stopMusic();
+          }, playDurationSec * 1000);
+        }
+      }).catch(() => {
+        songStatus.textContent = "⚠️ 再生エラー: URLを確認するか再度お試しください";
+        songStatus.style.color = "#f59e0b";
       });
     }
 
-    // 端末内の好きな曲ファイルをその場で読み込む処理
-    selectFileBtn.addEventListener("click", () => {
-      audioFileInput.click();
-    });
-
-    audioFileInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const fileUrl = URL.createObjectURL(file);
-      musicPlayer.pause();
-      musicPlayer.src = fileUrl;
-      musicPlayer.load();
-
-      songStatus.textContent = `🎵 設定中の曲: ${file.name}`;
-      songStatus.style.color = "#10b981";
-      unlockAudio();
-    });
-
-    // 試聴・停止ボタン
-    testSoundBtn.addEventListener("click", () => {
-      if (musicPlayer.paused) {
-        playMusic();
-      } else {
-        musicPlayer.pause();
-        musicPlayer.currentTime = 0;
-      }
-    });
-
-    async function startCamera() {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-      prevFrameData = null;
-      isPersonInZone = false;
-
-      const constraints = {
-        video: {
-          facingMode: useFrontCamera ? "user" : "environment",
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        },
-        audio: false
-      };
-
-      try {
-        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = currentStream;
-      } catch (err) {
-        alert("カメラの起動に失敗しました。カメラの許可設定を確認してください。\n" + err.message);
-      }
-    }
-
-    function processVideo() {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        const w = procCanvas.width;
-        const h = procCanvas.height;
-        ctx.drawImage(video, 0, 0, w, h);
-
-        const startX = Math.floor(w * 0.32);
-        const startY = Math.floor(h * 0.175);
-        const zoneW = Math.floor(w * 0.36);
-        const zoneH = Math.floor(h * 0.65);
-
-        const frame = ctx.getImageData(startX, startY, zoneW, zoneH).data;
-
-        if (prevFrameData) {
-          let changedPixels = 0;
-          const totalPixels = zoneW * zoneH;
-          const pixelDiffThreshold = 55 - (sensitivity * 4);
-
-          for (let i = 0; i < frame.length; i += 4) {
-            const rDiff = Math.abs(frame[i] - prevFrameData[i]);
-            const gDiff = Math.abs(frame[i + 1] - prevFrameData[i + 1]);
-            const bDiff = Math.abs(frame[i + 2] - prevFrameData[i + 2]);
-            const avgDiff = (rDiff + gDiff + bDiff) / 3;
-
-            if (avgDiff > pixelDiffThreshold) {
-              changedPixels++;
-            }
-          }
-
-          const changeRatio = changedPixels / totalPixels;
-          const isMovingNow = changeRatio > 0.18;
-
-          if (isMovingNow) {
-            clearFrames = 0;
-            if (!isPersonInZone) {
-              isPersonInZone = true;
-              currentCount++;
-              currentCountEl.textContent = currentCount;
-
-              detectZone.classList.add("active");
-              zoneStatus.textContent = "検知！";
-
-              if (currentCount >= targetCount) {
-                playMusic();
-                detectZone.classList.add("triggered");
-                zoneStatus.textContent = "🎵 再生中！";
-
-                setTimeout(() => {
-                  currentCount = 0;
-                  currentCountEl.textContent = "0";
-                  detectZone.classList.remove("triggered");
-                }, 1500);
-              }
-            }
-          } else {
-            if (isPersonInZone) {
-              clearFrames++;
-              if (clearFrames > 15) {
-                isPersonInZone = false;
-                detectZone.classList.remove("active");
-                zoneStatus.textContent = "待機中";
-              }
-            }
-          }
-        }
-
-        if (!prevFrameData) {
-          prevFrameData = new Uint8ClampedArray(frame);
-        } else {
-          for (let i = 0; i < frame.length; i++) {
-            prevFrameData[i] = prevFrameData[i] * 0.7 + frame[i] * 0.3;
-          }
-        }
-      }
-
-      requestAnimationFrame(processVideo);
-    }
-
-    function updateTargetDisplay() {
-      targetCountDisplay.textContent = `${targetCount}回`;
-      hudTargetEl.textContent = targetCount;
-    }
-
-    minusBtn.addEventListener("click", () => {
-      if (targetCount > 1) {
-        targetCount--;
-        updateTargetDisplay();
-      }
-    });
-
-    plusBtn.addEventListener("click", () => {
-      if (targetCount < 50) {
-        targetCount++;
-        updateTargetDisplay();
-      }
-    });
-
-    sensitivitySlider.addEventListener("input", (e) => {
-      sensitivity = parseInt(e.target.value, 10);
-      sensitivityVal.textContent = sensitivity;
-    });
-
-    resetBtn.addEventListener("click", () => {
-      currentCount = 0;
-      currentCountEl.textContent = "0";
-      isPersonInZone = false;
+    function stopMusic() {
+      if (stopTimerId) clearTimeout(stopTimerId);
       musicPlayer.pause();
       musicPlayer.currentTime = 0;
-      detectZone.classList.remove("active", "triggered");
-      zoneStatus.textContent = "待機中";
+      counterBox.classList.remove("triggered");
+    }
+
+    // カウントボタン
+    countUpBtn.addEventListener("click", () => {
+      currentCount++;
+      currentCountEl.textContent = currentCount;
+
+      if (currentCount >= targetCount) {
+        playMusic();
+        setTimeout(() => {
+          currentCount = 0;
+          currentCountEl.textContent = "0";
+        }, 1200);
+      }
     });
 
-    cameraSwitchBtn.addEventListener("click", async () => {
-      useFrontCamera = !useFrontCamera;
-      await startCamera();
-      unlockAudio();
+    // URL読込
+    loadUrlBtn.addEventListener("click", () => {
+      loadMusicFromUrl(musicUrlInput.value);
     });
 
-    startBtn.addEventListener("click", async () => {
-      unlockAudio();
-      await startCamera();
-      unlockAudio();
-      startOverlay.style.display = "none";
-      requestAnimationFrame(processVideo);
+    // 目標カウント調整
+    countMinusBtn.addEventListener("click", () => {
+      if (targetCount > 1) {
+        targetCount--;
+        targetCountDisplay.textContent = `${targetCount}回`;
+        targetHud.textContent = targetCount;
+      }
     });
-  </script>
-</body>
-</html>
+
+    countPlusBtn.addEventListener("click", () => {
+      if (targetCount < 99) {
+        targetCount++;
+        targetCountDisplay.textContent = `${targetCount}回`;
+        targetHud.textContent = targetCount;
+      }
+    });
+
+    // 曲の長さ調整
+    const DURATION_STEPS = [0, 2, 3, 5, 10, 15, 20, 30, 45, 60];
+    let durIndex = 0;
+
+    function updateDurationDisplay() {
+      playDurationSec = DURATION_STEPS[durIndex];
+      durationDisplay.text
