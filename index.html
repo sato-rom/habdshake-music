@@ -373,4 +373,50 @@
 
     function updateDurationDisplay() {
       playDurationSec = DURATION_STEPS[durIndex];
-      durationDisplay.text
+      durationDisplay.textContent = playDurationSec === 0 ? "最後まで" : `${playDurationSec}秒間`;
+    }
+
+    durMinusBtn.addEventListener("click", () => {
+      if (durIndex > 0) {
+        durIndex--;
+        updateDurationDisplay();
+      }
+    });
+
+    durPlusBtn.addEventListener("click", () => {
+      if (durIndex < DURATION_STEPS.length - 1) {
+        durIndex++;
+        updateDurationDisplay();
+      }
+    });
+
+    // 音量調整
+    volumeSlider.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value, 10);
+      currentVolume = val / 100;
+      musicPlayer.volume = currentVolume;
+      volumeVal.textContent = `${val}%`;
+    });
+
+    // 再生・停止ボタン
+    playStopBtn.addEventListener("click", () => {
+      if (musicPlayer.paused) {
+        playMusic();
+      } else {
+        stopMusic();
+      }
+    });
+
+    // リセットボタン
+    resetBtn.addEventListener("click", () => {
+      currentCount = 0;
+      currentCountEl.textContent = "0";
+      stopMusic();
+    });
+
+    // 初期URL読込
+    musicUrlInput.value = INITIAL_MUSIC_URL;
+    loadMusicFromUrl(INITIAL_MUSIC_URL);
+  </script>
+</body>
+</html>
