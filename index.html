@@ -120,11 +120,11 @@
 
     .controls {
       background: #1e293b;
-      padding: 16px 20px;
+      padding: 14px 16px;
       border-top: 1px solid #334155;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       z-index: 20;
     }
 
@@ -132,8 +132,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 0.9rem;
+      gap: 10px;
+      font-size: 0.88rem;
     }
 
     .num-control {
@@ -143,8 +143,8 @@
     }
 
     .step-btn {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       border: 1px solid #475569;
       background: #0f172a;
@@ -155,7 +155,7 @@
     }
 
     #targetCountDisplay {
-      font-size: 1.3rem;
+      font-size: 1.25rem;
       font-weight: bold;
       color: #f59e0b;
       min-width: 44px;
@@ -169,22 +169,28 @@
 
     .btn-group {
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
 
     .action-btn {
       flex: 1;
-      padding: 12px;
+      padding: 11px 6px;
       border-radius: 12px;
       border: none;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       font-weight: bold;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     #resetBtn {
       background: #334155;
       color: #f8fafc;
+    }
+
+    #selectFileBtn {
+      background: #10b981;
+      color: #0f172a;
     }
 
     #testSoundBtn {
@@ -196,15 +202,24 @@
       background: #475569;
       color: #fff;
     }
+
+    #songStatus {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 </head>
 <body>
 
   <div id="startOverlay">
-    <h1 style="font-size: 1.6rem; margin-bottom: 10px;">🚶 通過検知サウンド</h1>
+    <h1 style="font-size: 1.6rem; margin-bottom: 10px;">🎵 通過検知ミュージック</h1>
     <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6;">
-      カメラの中央枠を人が指定回数通ると<br>自動で音を鳴らします。<br>
-      <span style="color: #f59e0b; font-size: 0.85rem;">※iPhoneの場合は本体横の消音モードを解除してください</span>
+      カメラの中央枠を人が指定回数通ると<br>設定した曲を再生します。<br>
+      <span style="color: #f59e0b; font-size: 0.85rem;">※iPhoneは消音モードを解除してください</span>
     </p>
     <button id="startBtn" type="button">▶ カメラを起動して開始</button>
   </div>
@@ -224,8 +239,9 @@
   </div>
 
   <div class="controls">
+    <!-- 鳴らす回数の設定 -->
     <div class="ctrl-row">
-      <span>🔔 音を鳴らす回数:</span>
+      <span>🔔 曲を鳴らす回数:</span>
       <div class="num-control">
         <button class="step-btn" id="minusBtn" type="button">−</button>
         <span id="targetCountDisplay">3回</span>
@@ -233,22 +249,35 @@
       </div>
     </div>
 
+    <!-- 感度スライダー -->
     <div class="ctrl-row">
       <span style="white-space: nowrap;">🎚️ 検知感度:</span>
       <input type="range" id="sensitivitySlider" min="1" max="10" value="5" />
       <span id="sensitivityVal" style="width: 24px; text-align: right;">5</span>
     </div>
 
+    <!-- 曲ファイル選択状態 -->
+    <div id="songStatus">🎵 現在の曲: music.mp3（または右のボタンで選択）</div>
+    <input type="file" id="audioFileInput" accept="audio/*" style="display: none;" />
+
+    <!-- ボタン群 -->
     <div class="btn-group">
+      <button class="action-btn" id="selectFileBtn" type="button">📁 曲を選ぶ</button>
+      <button class="action-btn" id="testSoundBtn" type="button">▶ 試聴/停止</button>
       <button class="action-btn" id="resetBtn" type="button">🔄 リセット</button>
-      <button class="action-btn" id="cameraSwitchBtn" type="button">📷 カメラ切替</button>
-      <button class="action-btn" id="testSoundBtn" type="button">🔊 音テスト</button>
+      <button class="action-btn" id="cameraSwitchBtn" type="button">📷 切替</button>
     </div>
   </div>
 
   <canvas id="procCanvas" width="160" height="120" style="display: none;"></canvas>
 
   <script>
+    // =========================================================
+    // ★ GitHub上の同じフォルダに置いた曲のファイル名を指定できます
+    // （例: "./music.mp3" や "./song.m4a" など半角英数字推奨）
+    // =========================================================
+    const DEFAULT_MUSIC_SRC = "./music.mp3";
+
     const startOverlay = document.getElementById("startOverlay");
     const startBtn = document.getElementById("startBtn");
     const video = document.getElementById("video");
@@ -266,8 +295,11 @@
     const sensitivitySlider = document.getElementById("sensitivitySlider");
     const sensitivityVal = document.getElementById("sensitivityVal");
     const resetBtn = document.getElementById("resetBtn");
+    const selectFileBtn = document.getElementById("selectFileBtn");
+    const audioFileInput = document.getElementById("audioFileInput");
     const testSoundBtn = document.getElementById("testSoundBtn");
     const cameraSwitchBtn = document.getElementById("cameraSwitchBtn");
+    const songStatus = document.getElementById("songStatus");
 
     let targetCount = 3;
     let currentCount = 0;
@@ -279,82 +311,70 @@
     let isPersonInZone = false;
     let clearFrames = 0;
 
-    // 音の生成（WAVデータをメモリ上に作ってHTMLの<audio>として鳴らす方式）
-    // ※Web Audio API単体よりもiPhoneのカメラ起動中に出力が安定し、音量も大きくなります
-    let chimeAudio = null;
+    // 音楽再生用のAudioオブジェクト
+    const musicPlayer = new Audio();
+    musicPlayer.src = DEFAULT_MUSIC_SRC;
+    musicPlayer.preload = "auto";
+    musicPlayer.volume = 1.0;
 
-    function createChimeWavUrl() {
-      const sampleRate = 44100;
-      const duration = 1.2;
-      const numSamples = Math.floor(sampleRate * duration);
-      const buffer = new ArrayBuffer(44 + numSamples * 2);
-      const view = new DataView(buffer);
+    musicPlayer.addEventListener("error", () => {
+      songStatus.textContent = "⚠️ 曲未読込：「📁 曲を選ぶ」から音楽ファイルを選択してください";
+      songStatus.style.color = "#f59e0b";
+    });
 
-      function writeString(offset, str) {
-        for (let i = 0; i < str.length; i++) {
-          view.setUint8(offset + i, str.charCodeAt(i));
-        }
+    musicPlayer.addEventListener("canplaythrough", () => {
+      if (songStatus.textContent.includes("未読込")) {
+        songStatus.textContent = "🎵 準備完了";
+        songStatus.style.color = "#10b981";
       }
+    });
 
-      writeString(0, "RIFF");
-      view.setUint32(4, 36 + numSamples * 2, true);
-      writeString(8, "WAVE");
-      writeString(12, "fmt ");
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, 1, true);
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * 2, true);
-      view.setUint16(32, 2, true);
-      view.setUint16(34, 16, true);
-      writeString(36, "data");
-      view.setUint32(40, numSamples * 2, true);
-
-      for (let i = 0; i < numSamples; i++) {
-        const t = i / sampleRate;
-        let sample = 0;
-
-        // 0.0〜0.35秒：ピン（987.77Hz）
-        if (t < 0.35) {
-          const env = Math.exp(-t * 4);
-          sample = Math.sin(2 * Math.PI * 987.77 * t) * env;
-        }
-        // 0.35〜1.2秒：ポーン（783.99Hz）
-        else {
-          const t2 = t - 0.35;
-          const env = Math.exp(-t2 * 3);
-          sample = Math.sin(2 * Math.PI * 783.99 * t2) * env;
-        }
-
-        const clamped = Math.max(-1, Math.min(1, sample * 0.95));
-        view.setInt16(44 + i * 2, clamped * 0x7fff, true);
-      }
-
-      const blob = new Blob([buffer], { type: "audio/wav" });
-      return URL.createObjectURL(blob);
-    }
-
-    function initAudio() {
-      if (!chimeAudio) {
-        chimeAudio = new Audio(createChimeWavUrl());
-        chimeAudio.preload = "auto";
-        chimeAudio.volume = 1.0;
-      }
-      // ユーザー操作の瞬間に再生・即停止してiPhoneの音声ロックを解除
-      chimeAudio.play().then(() => {
-        chimeAudio.pause();
-        chimeAudio.currentTime = 0;
+    // スマホの音声ロックを解除する関数
+    function unlockAudio() {
+      musicPlayer.play().then(() => {
+        musicPlayer.pause();
+        musicPlayer.currentTime = 0;
       }).catch(() => {});
     }
 
-    function playChime() {
-      if (!chimeAudio) initAudio();
-      chimeAudio.currentTime = 0;
-      chimeAudio.volume = 1.0;
-      chimeAudio.play().catch(err => {
-        console.warn("再生ブロック:", err);
+    // 指定回数達成時に曲を再生する関数
+    function playMusic() {
+      musicPlayer.currentTime = 0;
+      musicPlayer.volume = 1.0;
+      musicPlayer.play().catch(err => {
+        songStatus.textContent = "⚠️ 再生できませんでした（「📁 曲を選ぶ」で選択してください）";
+        songStatus.style.color = "#ef4444";
       });
     }
+
+    // 端末内の好きな曲ファイルをその場で読み込む処理
+    selectFileBtn.addEventListener("click", () => {
+      audioFileInput.click();
+    });
+
+    audioFileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const fileUrl = URL.createObjectURL(file);
+      musicPlayer.pause();
+      musicPlayer.src = fileUrl;
+      musicPlayer.load();
+
+      songStatus.textContent = `🎵 設定中の曲: ${file.name}`;
+      songStatus.style.color = "#10b981";
+      unlockAudio();
+    });
+
+    // 試聴・停止ボタン
+    testSoundBtn.addEventListener("click", () => {
+      if (musicPlayer.paused) {
+        playMusic();
+      } else {
+        musicPlayer.pause();
+        musicPlayer.currentTime = 0;
+      }
+    });
 
     async function startCamera() {
       if (currentStream) {
@@ -423,9 +443,9 @@
               zoneStatus.textContent = "検知！";
 
               if (currentCount >= targetCount) {
-                playChime();
+                playMusic();
                 detectZone.classList.add("triggered");
-                zoneStatus.textContent = "🔔 達成！";
+                zoneStatus.textContent = "🎵 再生中！";
 
                 setTimeout(() => {
                   currentCount = 0;
@@ -486,31 +506,22 @@
       currentCount = 0;
       currentCountEl.textContent = "0";
       isPersonInZone = false;
+      musicPlayer.pause();
+      musicPlayer.currentTime = 0;
       detectZone.classList.remove("active", "triggered");
       zoneStatus.textContent = "待機中";
-    });
-
-    testSoundBtn.addEventListener("click", () => {
-      playChime();
     });
 
     cameraSwitchBtn.addEventListener("click", async () => {
       useFrontCamera = !useFrontCamera;
       await startCamera();
-      initAudio();
+      unlockAudio();
     });
 
-    // 画面のどこかをタップした時も音声ロックを確実に解除しておく
-    document.body.addEventListener("touchstart", () => {
-      if (chimeAudio && chimeAudio.paused && chimeAudio.currentTime === 0) {
-        chimeAudio.load();
-      }
-    }, { once: true, passive: true });
-
     startBtn.addEventListener("click", async () => {
-      initAudio(); // 1. まず音声オブジェクトを生成してロック解除
-      await startCamera(); // 2. カメラを起動
-      initAudio(); // 3. カメラ起動後に再度音声チャンネルを有効化
+      unlockAudio();
+      await startCamera();
+      unlockAudio();
       startOverlay.style.display = "none";
       requestAnimationFrame(processVideo);
     });
