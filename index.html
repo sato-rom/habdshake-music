@@ -283,6 +283,7 @@
       border-radius: 99px;
       font-size: 0.75rem;
       font-weight: bold;
+      white-space: nowrap;
     }
 
     .auth-pill.on {
@@ -403,6 +404,34 @@
     .btn-stop { background: #ef4444; color: #fff; }
     .btn-reset { background: #0f172a; color: #cbd5e1; border: 1px solid #475569; }
     .btn-face-reg { background: linear-gradient(135deg, #10b981, #059669); color: #fff; padding: 13px; font-size: 0.92rem; }
+
+    /* 歩く速さプリセットボタン */
+    .speed-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .speed-btn {
+      background: #0f172a;
+      border: 1.5px solid #334155;
+      border-radius: 12px;
+      padding: 10px 6px;
+      color: #cbd5e1;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .speed-btn.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.16);
+      color: #38bdf8;
+    }
 
     /* 顔認証設定画面用スタイル */
     .face-preview-box {
@@ -762,7 +791,7 @@
   <div id="startOverlay">
     <h2 style="font-size: 1.5rem; color: #38bdf8;">👤 顔認証・入退出サウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      顔認証で登録した人だけが通過したときに曲が流れます。<br>左上の「☰ ➔ 👤 顔認証設定」からいつでも顔を登録できます。
+      顔認証された人の通過を確実にカウントし、<br>速歩きからゆっくり歩行まで対応します。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -779,7 +808,7 @@
       <span>👤</span><span>顔認証設定（登録・管理）</span>
     </button>
     <button class="nav-item-btn" data-target="settingsScreen" type="button">
-      <span>⚙️</span><span>設定（入退出方向・曲編集）</span>
+      <span>⚙️</span><span>設定（歩く速さ・方向・曲）</span>
     </button>
   </nav>
 
@@ -811,7 +840,7 @@
         <!-- 現在の顔認証モード＆最新認証者表示 -->
         <div class="face-auth-banner" id="mainFaceBanner">
           <div>
-            <span style="color: #94a3b8;">👤 顔認証モード: </span>
+            <span style="color: #94a3b8;">👤 認証状況: </span>
             <strong id="mainMatchedName" style="color: #f8fafc;">待機中</strong>
           </div>
           <span class="auth-pill on" id="mainAuthStatePill">認証ON（0名登録）</span>
@@ -872,10 +901,9 @@
     </div>
 
     <!-- ==========================================
-         画面2：顔認証設定画面（新規追加）
+         画面2：顔認証設定画面
          ========================================== -->
     <div id="faceAuthScreen" class="screen-view">
-      <!-- 顔認証フィルターのON/OFF＆しきい値 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #10b981;">🛡️ 顔認証フィルター設定</div>
 
@@ -883,7 +911,7 @@
           <div style="flex: 1;">
             <div style="font-weight: bold;">登録した人の顔だけ反応させる</div>
             <div style="font-size: 0.74rem; color: #94a3b8; margin-top: 2px;">
-              ONのとき、未登録の人が通ってもカウント・曲再生を行いません
+              通過中に1度でも顔が一致すれば確実にカウントされます
             </div>
           </div>
           <label class="toggle-switch">
@@ -894,11 +922,11 @@
 
         <div class="ctrl-row" style="padding-top: 8px; border-top: 1px dashed #334155;">
           <span style="white-space: nowrap;">🎯 一致判定のゆるさ:</span>
-          <input type="range" id="faceThresholdSlider" min="35" max="65" value="48" />
-          <span id="faceThresholdVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">0.48</span>
+          <input type="range" id="faceThresholdSlider" min="35" max="68" value="52" />
+          <span id="faceThresholdVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">0.52</span>
         </div>
         <div style="font-size: 0.72rem; color: #94a3b8;">
-          ※ 数値を大きく（0.55側）すると少し角度が変わっても反応しやすくなり、小さく（0.40側）すると本人判定が厳しくなります。
+          ※ 歩きながらでも反応しやすいよう標準を 0.52 に設定しています。
         </div>
       </div>
 
@@ -909,7 +937,6 @@
           <span id="faceLiveDetectBadge" style="font-size: 0.75rem; color: #f59e0b;">カメラ待機中</span>
         </div>
 
-        <!-- 登録確認用のライブプレビュー枠 -->
         <div class="face-preview-box">
           <canvas id="faceMirrorCanvas"></canvas>
         </div>
@@ -919,7 +946,7 @@
           <button class="btn btn-face-reg" id="registerFaceBtn" type="button">📸 今のカメラ映像から顔を登録する</button>
         </div>
         <div id="faceRegFeedback" style="font-size: 0.8rem; text-align: center; color: #94a3b8;">
-          カメラに1人の顔を正面から映した状態でボタンを押してください。
+          カメラに1人の顔を映した状態でボタンを押してください。
         </div>
       </div>
 
@@ -934,9 +961,44 @@
     </div>
 
     <!-- ==========================================
-         画面3：一般設定画面（入退出方向・カメラ制御・効果音・曲編集）
+         画面3：一般設定画面（歩く速さ・入退出方向・カメラ・曲編集）
          ========================================== -->
     <div id="settingsScreen" class="screen-view">
+      <!-- 歩く速さ・通過感度設定（新規追加） -->
+      <div class="card">
+        <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🏃 歩く速さ・通過感度設定</div>
+        <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
+          ※ 設置場所の通路幅や人の歩く速さに合わせて選べます。速歩きで通り過ぎてしまう場合は「速歩き」を選んでください。
+        </div>
+
+        <div class="speed-preset-grid">
+          <button type="button" class="speed-btn" data-speed="fast">
+            <span>💨 速歩き</span>
+            <span style="font-size: 0.68rem; opacity: 0.8;">短い移動で即反応</span>
+          </button>
+          <button type="button" class="speed-btn active" data-speed="normal">
+            <span>🚶 普通</span>
+            <span style="font-size: 0.68rem; opacity: 0.8;">標準バランス</span>
+          </button>
+          <button type="button" class="speed-btn" data-speed="slow">
+            <span>🐢 ゆっくり</span>
+            <span style="font-size: 0.68rem; opacity: 0.8;">長めに見失い防止</span>
+          </button>
+        </div>
+
+        <div class="ctrl-row" style="padding-top: 8px; border-top: 1px dashed #334155;">
+          <span style="white-space: nowrap;">📏 通過判定の移動量:</span>
+          <input type="range" id="moveThresholdSlider" min="5" max="35" value="12" />
+          <span id="moveThresholdVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">12%</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span style="white-space: nowrap;">⏱️ 追跡の保持時間:</span>
+          <input type="range" id="trackHoldSlider" min="8" max="50" value="25" />
+          <span id="trackHoldVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">2.5秒</span>
+        </div>
+      </div>
+
       <!-- 入退出の方向＆曲割り当て設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #10b981;">🚪 入退出の方向判定・曲割り当て設定</div>
@@ -1173,6 +1235,13 @@
     const autoOffInSettingsToggle = document.getElementById("autoOffInSettingsToggle");
     const settingsCamToggleBtn = document.getElementById("settingsCamToggleBtn");
 
+    // 歩く速さ設定DOM
+    const speedPresetBtns = document.querySelectorAll(".speed-btn");
+    const moveThresholdSlider = document.getElementById("moveThresholdSlider");
+    const moveThresholdVal = document.getElementById("moveThresholdVal");
+    const trackHoldSlider = document.getElementById("trackHoldSlider");
+    const trackHoldVal = document.getElementById("trackHoldVal");
+
     // 顔認証設定DOM
     const mainMatchedName = document.getElementById("mainMatchedName");
     const mainAuthStatePill = document.getElementById("mainAuthStatePill");
@@ -1254,10 +1323,17 @@
     let isCamHidden = false;
     let activeScreenId = "mainScreen";
 
+    // 歩く速さ・通過感度設定（localStorage保存）
+    let savedWalkConfig = JSON.parse(localStorage.getItem("person_sound_walk_cfg_v1") || "null") || {
+      preset: "normal",
+      moveRatio: 0.12,   // 画面幅の12%移動で通過判定
+      holdMs: 2500       // 見失っても2.5秒間は同一人物の移動として保持
+    };
+
     // 顔認証データ（localStorage保存）
     let savedFaceConfig = JSON.parse(localStorage.getItem("person_sound_face_cfg_v1") || "null") || {
       enabled: true,
-      threshold: 0.48
+      threshold: 0.52
     };
     let registeredFaces = JSON.parse(localStorage.getItem("person_sound_faces_v1") || "[]");
     let lastMatchedFaceName = null;
@@ -1276,11 +1352,12 @@
       exitAction: "random"
     };
 
-    // 人物の左右移動追跡用
+    // 人物の左右移動追跡用（通過中の認証状態も保持）
     let trackStartX = null;
     let trackLastX = null;
     let trackLastSeenTime = 0;
     let trackTriggeredThisPass = false;
+    let trackVerifiedNameThisPass = null; // 今回の通過中に一度でも認証されたら名前をロック
 
     let sfxMasterVolume = 0.9;
     let activeSfxAudios = [];
@@ -1317,6 +1394,58 @@
     const audioPlayer = new Audio();
     audioPlayer.crossOrigin = "anonymous";
     audioPlayer.preload = "auto";
+
+    // ==========================================
+    // 歩く速さ・通過感度設定のUI＆保存
+    // ==========================================
+    function saveWalkConfig() {
+      localStorage.setItem("person_sound_walk_cfg_v1", JSON.stringify(savedWalkConfig));
+      updateWalkSpeedUI();
+    }
+
+    function updateWalkSpeedUI() {
+      const pct = Math.round(savedWalkConfig.moveRatio * 100);
+      moveThresholdSlider.value = String(pct);
+      moveThresholdVal.textContent = `${pct}%`;
+
+      const holdTenths = Math.round(savedWalkConfig.holdMs / 100);
+      trackHoldSlider.value = String(holdTenths);
+      trackHoldVal.textContent = `${(holdTenths / 10).toFixed(1)}秒`;
+
+      speedPresetBtns.forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.speed === savedWalkConfig.preset);
+      });
+    }
+
+    speedPresetBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.speed;
+        savedWalkConfig.preset = mode;
+        if (mode === "fast") {
+          savedWalkConfig.moveRatio = 0.08; // 8%の移動で即反応
+          savedWalkConfig.holdMs = 1500;    // 1.5秒保持
+        } else if (mode === "normal") {
+          savedWalkConfig.moveRatio = 0.12; // 12%の移動
+          savedWalkConfig.holdMs = 2500;    // 2.5秒保持
+        } else if (mode === "slow") {
+          savedWalkConfig.moveRatio = 0.16; // 16%の移動
+          savedWalkConfig.holdMs = 4000;    // 4.0秒保持（ゆっくり歩き・立ち止まり対応）
+        }
+        saveWalkConfig();
+      });
+    });
+
+    moveThresholdSlider.addEventListener("input", () => {
+      savedWalkConfig.preset = "custom";
+      savedWalkConfig.moveRatio = parseInt(moveThresholdSlider.value, 10) / 100;
+      saveWalkConfig();
+    });
+
+    trackHoldSlider.addEventListener("input", () => {
+      savedWalkConfig.preset = "custom";
+      savedWalkConfig.holdMs = parseInt(trackHoldSlider.value, 10) * 100;
+      saveWalkConfig();
+    });
 
     // ==========================================
     // 顔認証データの保存・UI更新・照合ロジック
@@ -1447,12 +1576,12 @@
 
       try {
         const detection = await faceapi
-          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
 
         if (!detection) {
-          faceRegFeedback.textContent = "❌ 顔を検出できませんでした。明るい場所でカメラの正面を向いて再度押してください。";
+          faceRegFeedback.textContent = "❌ 顔を検出できませんでした。明るい場所でカメラの方に顔を向けて再度押してください。";
           faceRegFeedback.style.color = "#ef4444";
           registerFaceBtn.disabled = false;
           return;
@@ -1461,7 +1590,6 @@
         const rawName = newFaceNameInput.value.trim();
         const personName = rawName || `認証メンバー ${registeredFaces.length + 1}`;
 
-        // 顔の切り抜きサムネイル生成
         const box = detection.detection.box;
         const thumbCanvas = document.createElement("canvas");
         thumbCanvas.width = 96;
@@ -1650,7 +1778,7 @@
           currentCount = 0;
           currentCountEl.textContent = "0";
         } else {
-          systemStatus.textContent = `➡ ${nameTag}入室認証（${currentCount}/${targetCount}人・あと ${targetCount - currentCount} 人）`;
+          systemStatus.textContent = `➡ ${nameTag}入室カウント（${currentCount}/${targetCount}人・あと ${targetCount - currentCount} 人）`;
           systemStatus.style.color = "#10b981";
         }
       } else if (directionType === "exit") {
@@ -1664,7 +1792,7 @@
             currentCount = 0;
             currentCountEl.textContent = "0";
           } else {
-            systemStatus.textContent = `⬅ ${nameTag}退出認証（あと ${targetCount - currentCount} 人）`;
+            systemStatus.textContent = `⬅ ${nameTag}退出カウント（あと ${targetCount - currentCount} 人）`;
             systemStatus.style.color = "#f59e0b";
           }
         }
@@ -1745,6 +1873,7 @@
         trackStartX = null;
         trackLastX = null;
         trackTriggeredThisPass = false;
+        trackVerifiedNameThisPass = null;
         updateCameraButtonsUI();
         if (currentPlayingIndex === -1) {
           restoreIdleStatus();
@@ -1984,7 +2113,7 @@
     }
 
     // ==========================================
-    // ハンバーガーメニュー開閉＆画面切り替え（顔認証画面も自動カメラON対応）
+    // ハンバーガーメニュー開閉＆画面切り替え
     // ==========================================
     function openDrawer() {
       navDrawer.classList.add("open");
@@ -2017,7 +2146,6 @@
 
         closeDrawer();
 
-        // 一般設定画面ではカメラ自動オフ、メイン・顔認証画面では自動再開
         if (targetId === "settingsScreen") {
           if (autoOffInSettingsToggle.checked && isCameraActive) {
             stopCameraHardware("⚙️ 設定中のためカメラを自動停止しています");
@@ -2621,7 +2749,7 @@
     });
 
     // ==========================================
-    // 顔認証（非同期バックグラウンド照合）
+    // 顔認証（非同期バックグラウンド照合・速歩き対応）
     // ==========================================
     async function runFaceRecognitionStep() {
       if (isRunningFaceCheck || !faceModelsLoaded || !isCameraActive || webcamVideo.readyState < 2) return;
@@ -2629,8 +2757,9 @@
 
       isRunningFaceCheck = true;
       try {
+        // 歩行中でも高速に顔を拾えるよう inputSize: 160 / scoreThreshold: 0.38 で検出
         const detection = await faceapi
-          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.45 }))
+          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.38 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
 
@@ -2640,21 +2769,25 @@
           if (match) {
             lastMatchedFaceName = match.name;
             lastMatchedTime = now;
+            // 今回の通過セッション自体にも「認証済み」としてロック
+            if (trackStartX !== null) {
+              trackVerifiedNameThisPass = match.name;
+            }
             mainMatchedName.textContent = `${match.name}（認証OK）`;
             mainMatchedName.style.color = "#10b981";
             faceLiveDetectBadge.textContent = `✅ 認証一致: ${match.name}`;
             faceLiveDetectBadge.style.color = "#10b981";
           } else {
-            if (now - lastMatchedTime > 2000) {
+            if (now - lastMatchedTime > 2000 && !trackVerifiedNameThisPass) {
               lastMatchedFaceName = null;
-              mainMatchedName.textContent = "未登録の顔（スキップ）";
+              mainMatchedName.textContent = "未登録の顔";
               mainMatchedName.style.color = "#f59e0b";
             }
             faceLiveDetectBadge.textContent = "👤 顔検出中（未登録）";
             faceLiveDetectBadge.style.color = "#38bdf8";
           }
         } else {
-          if (now - lastMatchedTime > 2500) {
+          if (now - lastMatchedTime > 2500 && !trackVerifiedNameThisPass) {
             lastMatchedFaceName = null;
             mainMatchedName.textContent = "待機中";
             mainMatchedName.style.color = "#f8fafc";
@@ -2670,7 +2803,7 @@
     }
 
     // ==========================================
-    // メイン検出ループ（人物移動方向 ＋ 顔認証統合）
+    // メイン検出ループ（人物移動方向 ＋ 顔認証ロック統合）
     // ==========================================
     async function detectLoop() {
       if (!isCameraActive || !personModel) return;
@@ -2679,7 +2812,6 @@
         const vw = webcamVideo.videoWidth;
         const vh = webcamVideo.videoHeight;
 
-        // 顔認証設定画面を開いている場合はプレビューキャンバスにも映像を描画
         if (activeScreenId === "faceAuthScreen") {
           faceMirrorCanvas.width = vw;
           faceMirrorCanvas.height = vh;
@@ -2693,14 +2825,31 @@
         overlayCanvas.height = vh;
         ctx.clearRect(0, 0, vw, vh);
 
-        const persons = predictions.filter(p => p.class === "person" && p.score >= 0.55);
+        const persons = predictions.filter(p => p.class === "person" && p.score >= 0.50);
         const now = Date.now();
 
         if (persons.length > 0) {
-          // 人物が映っている間、並列で顔認証チェックを走らせる
+          // 1. 新しい通過セッションの開始判定
+          if (trackStartX === null || now - trackLastSeenTime > savedWalkConfig.holdMs) {
+            persons.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
+            const initPerson = persons[0];
+            trackStartX = (initPerson.bbox[0] + initPerson.bbox[2] / 2) / vw;
+            trackTriggeredThisPass = false;
+            // 直前1.5秒以内に顔認証されたばかりなら引き継ぐ
+            trackVerifiedNameThisPass = (lastMatchedFaceName && now - lastMatchedTime <= 1500)
+              ? lastMatchedFaceName
+              : null;
+          }
+
+          // 2. 並列で顔認証を実行
           runFaceRecognitionStep();
 
-          const isVerifiedNow = !savedFaceConfig.enabled || (lastMatchedFaceName !== null && (now - lastMatchedTime <= 2500));
+          // 3. 今回通過中に一度でも認証されたか、または直近で認証されていればOKとする
+          const verifiedName = trackVerifiedNameThisPass || ((lastMatchedFaceName && now - lastMatchedTime <= 2500) ? lastMatchedFaceName : null);
+          if (verifiedName && !trackVerifiedNameThisPass) {
+            trackVerifiedNameThisPass = verifiedName;
+          }
+          const isVerifiedNow = !savedFaceConfig.enabled || Boolean(verifiedName);
 
           if (isVerifiedNow) {
             cameraPipWrapper.classList.add("person-active");
@@ -2728,42 +2877,43 @@
           ctx.arc(mx + mw / 2, my + mh / 2, 7, 0, Math.PI * 2);
           ctx.fill();
 
-          if (trackStartX === null || now - trackLastSeenTime > 1500) {
-            trackStartX = centerXNorm;
-            trackTriggeredThisPass = false;
-          }
           trackLastX = centerXNorm;
           trackLastSeenTime = now;
 
-          // 画面幅の 18% 以上横に移動したら「通過方向」を確定
+          // 4. 通過判定（未認証の場合はスキップ確定せず、認証されるまで通過枠を保持する！）
           const deltaX = trackLastX - trackStartX;
-          if (!trackTriggeredThisPass && Math.abs(deltaX) >= 0.18) {
-            if (!isVerifiedNow) {
-              // 顔認証ONで未登録の人の場合は音を鳴らさず通過記録だけ完了にする
-              trackTriggeredThisPass = true;
-              if (currentPlayingIndex === -1) {
-                systemStatus.textContent = "🚫 未登録の人が通過したため再生をスキップしました";
-                systemStatus.style.color = "#94a3b8";
+          if (!trackTriggeredThisPass && Math.abs(deltaX) >= savedWalkConfig.moveRatio) {
+            if (isVerifiedNow) {
+              if (now - lastTriggerTime >= cooldownSec * 1000) {
+                lastTriggerTime = now;
+                trackTriggeredThisPass = true;
+
+                const movedLeftToRight = deltaX > 0;
+                const isEnter = enterDirectionSelect.value === "left_to_right"
+                  ? movedLeftToRight
+                  : !movedLeftToRight;
+
+                const authName = savedFaceConfig.enabled ? (verifiedName || "") : "";
+                handlePersonDirectionEvent(isEnter ? "enter" : "exit", false, authName);
               }
-            } else if (now - lastTriggerTime >= cooldownSec * 1000) {
-              lastTriggerTime = now;
-              trackTriggeredThisPass = true;
-
-              const movedLeftToRight = deltaX > 0;
-              const isEnter = enterDirectionSelect.value === "left_to_right"
-                ? movedLeftToRight
-                : !movedLeftToRight;
-
-              const authName = savedFaceConfig.enabled ? (lastMatchedFaceName || "") : "";
-              handlePersonDirectionEvent(isEnter ? "enter" : "exit", false, authName);
+            } else {
+              // 移動距離は達しているがまだ顔認証待ちのとき（スキップロックはせず認証を待つ）
+              if (currentPlayingIndex === -1) {
+                systemStatus.textContent = "🔍 通過検知中... 顔認証を確認しています";
+                systemStatus.style.color = "#f59e0b";
+              }
             }
           }
         } else {
           cameraPipWrapper.classList.remove("person-active", "person-unverified");
-          if (trackStartX !== null && now - trackLastSeenTime > 1500) {
+          if (trackStartX !== null && now - trackLastSeenTime > savedWalkConfig.holdMs) {
+            if (!trackTriggeredThisPass && savedFaceConfig.enabled && currentPlayingIndex === -1) {
+              restoreIdleStatus();
+            }
             trackStartX = null;
             trackLastX = null;
             trackTriggeredThisPass = false;
+            trackVerifiedNameThisPass = null;
           }
         }
       }
@@ -2786,6 +2936,7 @@
         renderAllSongLists();
         renderRegisteredFaces();
         updateCamDirectionTags();
+        updateWalkSpeedUI();
 
         startOverlay.style.display = "none";
         await startCameraHardware();
@@ -2802,6 +2953,7 @@
     renderRegisteredFaces();
     updateCameraButtonsUI();
     updateCamDirectionTags();
+    updateWalkSpeedUI();
   </script>
 </body>
 </html>
