@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>人感ランダムサウンドシステム（入退出・曲対応）</title>
+  <title>顔認証・入退出サウンドシステム</title>
 
-  <!-- TensorFlow.js & COCO-SSD（人物検知AI） -->
+  <!-- TensorFlow.js & COCO-SSD（人物検知・通過方向判定AI） -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <!-- face-api.js（ブラウザ完結型・顔認証AI） -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
 
   <style>
     * {
@@ -59,20 +61,20 @@
       cursor: wait;
     }
 
-    /* 右上の超小型カメラワイプ（L/Rラベル付き） */
+    /* 右上の超小型カメラワイプ */
     #cameraPipWrapper {
       position: fixed;
       top: 12px;
       right: 12px;
-      width: 112px;
-      height: 84px;
+      width: 116px;
+      height: 87px;
       border-radius: 12px;
       overflow: hidden;
       border: 2px solid #334155;
       background: #020617;
       z-index: 900;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-      transition: opacity 0.2s ease, transform 0.2s ease;
+      transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.15s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -86,7 +88,11 @@
 
     #cameraPipWrapper.person-active {
       border-color: #10b981;
-      box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.75);
+    }
+
+    #cameraPipWrapper.person-unverified {
+      border-color: #f59e0b;
     }
 
     #webcamVideo, #overlayCanvas {
@@ -127,7 +133,7 @@
       display: block;
     }
 
-    /* 左上のハンバーガーメニューボタン（3本線） */
+    /* 左上のハンバーガーメニューボタン */
     #menuToggleBtn {
       width: 44px;
       height: 44px;
@@ -169,7 +175,7 @@
       top: 0;
       left: 0;
       bottom: 0;
-      width: 260px;
+      width: 270px;
       background: #1e293b;
       border-right: 1px solid #334155;
       z-index: 2001;
@@ -202,7 +208,7 @@
       border: 1px solid transparent;
       background: #0f172a;
       color: #f8fafc;
-      font-size: 1rem;
+      font-size: 0.96rem;
       font-weight: bold;
       cursor: pointer;
       display: flex;
@@ -229,12 +235,12 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      padding-right: 120px;
+      padding-right: 124px;
       min-height: 46px;
     }
 
     h1 {
-      font-size: 1.15rem;
+      font-size: 1.12rem;
       color: #38bdf8;
       white-space: nowrap;
     }
@@ -257,6 +263,38 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+
+    /* 顔認証ステータスバッジ */
+    .face-auth-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-size: 0.82rem;
+    }
+
+    .auth-pill {
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .auth-pill.on {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+    }
+
+    .auth-pill.off {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+      border: 1px solid #475569;
     }
 
     /* カウント＆1日の上限ステータス表示 */
@@ -364,6 +402,59 @@
     .btn-exit { background: #f59e0b; color: #0f172a; }
     .btn-stop { background: #ef4444; color: #fff; }
     .btn-reset { background: #0f172a; color: #cbd5e1; border: 1px solid #475569; }
+    .btn-face-reg { background: linear-gradient(135deg, #10b981, #059669); color: #fff; padding: 13px; font-size: 0.92rem; }
+
+    /* 顔認証設定画面用スタイル */
+    .face-preview-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #020617;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #faceMirrorCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .face-list-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .registered-face-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .registered-face-card.matched-now {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.16);
+    }
+
+    .face-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #1e293b;
+      border: 1px solid #475569;
+      flex-shrink: 0;
+    }
 
     /* ワンタップ効果音パッド（4ボタン） */
     .sfx-grid {
@@ -396,20 +487,9 @@
       background: rgba(245, 158, 11, 0.2);
     }
 
-    .sfx-emoji {
-      font-size: 1.55rem;
-      line-height: 1.1;
-    }
-
-    .sfx-name {
-      font-size: 0.95rem;
-      color: #f8fafc;
-    }
-
-    .sfx-file {
-      font-size: 0.68rem;
-      color: #64748b;
-    }
+    .sfx-emoji { font-size: 1.55rem; line-height: 1.1; }
+    .sfx-name { font-size: 0.95rem; color: #f8fafc; }
+    .sfx-file { font-size: 0.68rem; color: #64748b; }
 
     /* トグルスイッチ */
     .toggle-switch {
@@ -420,11 +500,7 @@
       flex-shrink: 0;
     }
 
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
 
     .toggle-slider {
       position: absolute;
@@ -447,13 +523,8 @@
       transition: 0.2s;
     }
 
-    .toggle-switch input:checked + .toggle-slider {
-      background-color: #10b981;
-    }
-
-    .toggle-switch input:checked + .toggle-slider::before {
-      transform: translateX(22px);
-    }
+    .toggle-switch input:checked + .toggle-slider { background-color: #10b981; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
 
     /* メイン画面の曲リスト表示 */
     .song-card-list {
@@ -576,7 +647,7 @@
       max-width: 200px;
     }
 
-    /* 設定画面のURL・ファイル追加フォーム */
+    /* 入力フォーム */
     .url-input-col {
       display: flex;
       flex-direction: column;
@@ -604,7 +675,7 @@
       cursor: pointer;
     }
 
-    /* 設定画面の1曲ごとの個別編集カード */
+    /* 1曲ごとの個別編集カード */
     .setting-song-card {
       background: #0f172a;
       border: 1px solid #334155;
@@ -689,9 +760,9 @@
 
   <!-- 起動オーバーレイ -->
   <div id="startOverlay">
-    <h2 style="font-size: 1.5rem; color: #38bdf8;">🚶 入退出・人感サウンド</h2>
+    <h2 style="font-size: 1.5rem; color: #38bdf8;">👤 顔認証・入退出サウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      入室時も退出時も曲リスト（または指定した曲）を再生し、<br>歓声・拍手・ラッパ・キラッはボタンでいつでも鳴らせます。
+      顔認証で登録した人だけが通過したときに曲が流れます。<br>左上の「☰ ➔ 👤 顔認証設定」からいつでも顔を登録できます。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -702,14 +773,17 @@
   <nav id="navDrawer">
     <div class="drawer-title">画面切り替えメニュー</div>
     <button class="nav-item-btn active" data-target="mainScreen" type="button">
-      <span>🎵</span><span>メイン（効果音・曲一覧）</span>
+      <span>🎵</span><span>メイン（状況・効果音・曲）</span>
+    </button>
+    <button class="nav-item-btn" data-target="faceAuthScreen" type="button">
+      <span>👤</span><span>顔認証設定（登録・管理）</span>
     </button>
     <button class="nav-item-btn" data-target="settingsScreen" type="button">
       <span>⚙️</span><span>設定（入退出方向・曲編集）</span>
     </button>
   </nav>
 
-  <!-- 右上の超小型カメラワイプ（L/R方向ガイド表示付き） -->
+  <!-- 右上の超小型カメラワイプ -->
   <div id="cameraPipWrapper">
     <video id="webcamVideo" autoplay muted playsinline></video>
     <canvas id="overlayCanvas"></canvas>
@@ -730,13 +804,22 @@
     </header>
 
     <!-- ==========================================
-         画面1：メイン画面（ステータス・効果音パッド・曲一覧）
+         画面1：メイン画面
          ========================================== -->
     <div id="mainScreen" class="screen-view active">
       <div class="card">
+        <!-- 現在の顔認証モード＆最新認証者表示 -->
+        <div class="face-auth-banner" id="mainFaceBanner">
+          <div>
+            <span style="color: #94a3b8;">👤 顔認証モード: </span>
+            <strong id="mainMatchedName" style="color: #f8fafc;">待機中</strong>
+          </div>
+          <span class="auth-pill on" id="mainAuthStatePill">認証ON（0名登録）</span>
+        </div>
+
         <div class="status-grid">
           <div class="stat-box" id="countStatBox">
-            <div class="stat-label">入室カウント / 目標</div>
+            <div class="stat-label">認証入室カウント / 目標</div>
             <div class="stat-value">
               <span id="currentCount">0</span><span class="stat-sub"> / <span id="targetCountHud">3</span>人</span>
             </div>
@@ -769,7 +852,7 @@
         </div>
       </div>
 
-      <!-- ワンタップ効果音パッド（GitHub直下の4音源） -->
+      <!-- ワンタップ効果音パッド -->
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ 効果音ワンタップ再生</span>
@@ -784,22 +867,81 @@
           <span style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">📋 設定されている曲（入退出の再生対象）</span>
           <span id="mainSongCountBadge" style="font-size: 0.8rem; color: #94a3b8;">0曲</span>
         </div>
-        <div style="font-size: 0.78rem; color: #94a3b8;">
-          ※ 入室時と退出時で「ランダム再生」または「特定の曲を指定」したい場合は左上の「☰ ➔ 設定」から選べます。
-        </div>
         <div class="song-card-list" id="mainSongListContainer"></div>
       </div>
     </div>
 
     <!-- ==========================================
-         画面2：設定画面（入退出ルール・カメラ制御・効果音・曲編集）
+         画面2：顔認証設定画面（新規追加）
+         ========================================== -->
+    <div id="faceAuthScreen" class="screen-view">
+      <!-- 顔認証フィルターのON/OFF＆しきい値 -->
+      <div class="card">
+        <div style="font-size: 0.95rem; font-weight: bold; color: #10b981;">🛡️ 顔認証フィルター設定</div>
+
+        <div class="ctrl-row">
+          <div style="flex: 1;">
+            <div style="font-weight: bold;">登録した人の顔だけ反応させる</div>
+            <div style="font-size: 0.74rem; color: #94a3b8; margin-top: 2px;">
+              ONのとき、未登録の人が通ってもカウント・曲再生を行いません
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="faceAuthEnabledToggle" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="ctrl-row" style="padding-top: 8px; border-top: 1px dashed #334155;">
+          <span style="white-space: nowrap;">🎯 一致判定のゆるさ:</span>
+          <input type="range" id="faceThresholdSlider" min="35" max="65" value="48" />
+          <span id="faceThresholdVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">0.48</span>
+        </div>
+        <div style="font-size: 0.72rem; color: #94a3b8;">
+          ※ 数値を大きく（0.55側）すると少し角度が変わっても反応しやすくなり、小さく（0.40側）すると本人判定が厳しくなります。
+        </div>
+      </div>
+
+      <!-- カメラから新しい顔を登録 -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">📸 カメラから顔を登録する</span>
+          <span id="faceLiveDetectBadge" style="font-size: 0.75rem; color: #f59e0b;">カメラ待機中</span>
+        </div>
+
+        <!-- 登録確認用のライブプレビュー枠 -->
+        <div class="face-preview-box">
+          <canvas id="faceMirrorCanvas"></canvas>
+        </div>
+
+        <div class="url-input-col">
+          <input type="text" id="newFaceNameInput" class="text-input" placeholder="登録する人の名前（例：田中、店長 など）" />
+          <button class="btn btn-face-reg" id="registerFaceBtn" type="button">📸 今のカメラ映像から顔を登録する</button>
+        </div>
+        <div id="faceRegFeedback" style="font-size: 0.8rem; text-align: center; color: #94a3b8;">
+          カメラに1人の顔を正面から映した状態でボタンを押してください。
+        </div>
+      </div>
+
+      <!-- 登録済みの顔一覧 -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">👥 登録済みの顔リスト</span>
+          <span id="registeredFaceCountBadge" style="font-size: 0.8rem; color: #94a3b8;">0名</span>
+        </div>
+        <div class="face-list-grid" id="registeredFaceListContainer"></div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         画面3：一般設定画面（入退出方向・カメラ制御・効果音・曲編集）
          ========================================== -->
     <div id="settingsScreen" class="screen-view">
       <!-- 入退出の方向＆曲割り当て設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #10b981;">🚪 入退出の方向判定・曲割り当て設定</div>
         <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
-          ※ 基準は<b>「右上のカメラ小窓に映っている画面の左右」</b>です。初期状態では入室・退出ともに曲リストからランダムに曲が流れます。
+          ※ 基準は<b>「右上のカメラ小窓に映っている画面の左右」</b>です。入室・退出ともに登録曲から再生されます。
         </div>
 
         <div class="ctrl-row">
@@ -840,7 +982,7 @@
           <div style="flex: 1;">
             <div style="font-weight: bold;">設定画面では自動でカメラOFF</div>
             <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
-              設定中はカメラ電源を切り、メイン画面に戻ると自動再開します
+              この設定画面を開いている間はカメラを止め、メインや顔認証画面に戻ると自動再開します
             </div>
           </div>
           <label class="toggle-switch">
@@ -951,12 +1093,12 @@
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 曲リストの追加・個別設定</div>
         <div style="font-size: 0.76rem; color: #94a3b8; line-height: 1.45;">
-          ※ GitHubメイン直下のファイル名（例：<b>exit_song.mp3</b>）または外部URL（https://...）を入力して曲リストに追加できます。
+          ※ GitHubメイン直下のファイル名または外部URL（https://...）を入力して曲リストに追加できます。
         </div>
 
         <div class="url-input-col">
           <input type="text" id="newTitleInput" class="text-input" placeholder="表示名（省略可）" />
-          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名（例: exit.mp3）または外部URL" />
+          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名または外部URL（https://...）" />
           <button id="addUrlBtn" type="button">＋ 曲リストに追加する</button>
         </div>
 
@@ -966,6 +1108,11 @@
   </div>
 
   <script>
+    // =========================================================
+    // ★ 顔認証AIモデル配信元（vladmandic/face-api 公式CDN）
+    // =========================================================
+    const FACE_MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model";
+
     // =========================================================
     // ★ ワンタップ効果音ボタン定義（GitHubメイン直下のファイル）
     // =========================================================
@@ -1026,6 +1173,20 @@
     const autoOffInSettingsToggle = document.getElementById("autoOffInSettingsToggle");
     const settingsCamToggleBtn = document.getElementById("settingsCamToggleBtn");
 
+    // 顔認証設定DOM
+    const mainMatchedName = document.getElementById("mainMatchedName");
+    const mainAuthStatePill = document.getElementById("mainAuthStatePill");
+    const faceAuthEnabledToggle = document.getElementById("faceAuthEnabledToggle");
+    const faceThresholdSlider = document.getElementById("faceThresholdSlider");
+    const faceThresholdVal = document.getElementById("faceThresholdVal");
+    const faceLiveDetectBadge = document.getElementById("faceLiveDetectBadge");
+    const faceMirrorCanvas = document.getElementById("faceMirrorCanvas");
+    const newFaceNameInput = document.getElementById("newFaceNameInput");
+    const registerFaceBtn = document.getElementById("registerFaceBtn");
+    const faceRegFeedback = document.getElementById("faceRegFeedback");
+    const registeredFaceCountBadge = document.getElementById("registeredFaceCountBadge");
+    const registeredFaceListContainer = document.getElementById("registeredFaceListContainer");
+
     // 入退出設定DOM
     const enterDirectionSelect = document.getElementById("enterDirectionSelect");
     const enterSoundSelect = document.getElementById("enterSoundSelect");
@@ -1085,12 +1246,23 @@
     const mainSongCountBadge = document.getElementById("mainSongCountBadge");
 
     // 状態変数
-    let model = null;
+    let personModel = null;
+    let faceModelsLoaded = false;
     let mediaStream = null;
     let isCameraActive = false;
     let userManualCamOff = false;
     let isCamHidden = false;
     let activeScreenId = "mainScreen";
+
+    // 顔認証データ（localStorage保存）
+    let savedFaceConfig = JSON.parse(localStorage.getItem("person_sound_face_cfg_v1") || "null") || {
+      enabled: true,
+      threshold: 0.48
+    };
+    let registeredFaces = JSON.parse(localStorage.getItem("person_sound_faces_v1") || "[]");
+    let lastMatchedFaceName = null;
+    let lastMatchedTime = 0;
+    let isRunningFaceCheck = false;
 
     let currentCount = 0;
     let targetCount = 3;
@@ -1099,13 +1271,12 @@
     let lastTriggerTime = 0;
     let cooldownSec = 3;
 
-    // 入室・退出の再生モード保存用（どちらも初期値 "random"＝曲リストからランダム再生）
     let savedDirectionModes = JSON.parse(localStorage.getItem("person_sound_dir_modes_v1") || "null") || {
       enterAction: "random",
       exitAction: "random"
     };
 
-    // 人物の左右移動追跡用（Normalized X: 0.0=左端 〜 1.0=右端）
+    // 人物の左右移動追跡用
     let trackStartX = null;
     let trackLastX = null;
     let trackLastSeenTime = 0;
@@ -1148,6 +1319,191 @@
     audioPlayer.preload = "auto";
 
     // ==========================================
+    // 顔認証データの保存・UI更新・照合ロジック
+    // ==========================================
+    function saveFaceSettings() {
+      localStorage.setItem("person_sound_face_cfg_v1", JSON.stringify(savedFaceConfig));
+      localStorage.setItem("person_sound_faces_v1", JSON.stringify(registeredFaces));
+      updateFaceAuthBannerUI();
+    }
+
+    function updateFaceAuthBannerUI() {
+      faceAuthEnabledToggle.checked = savedFaceConfig.enabled;
+      faceThresholdSlider.value = String(Math.round(savedFaceConfig.threshold * 100));
+      faceThresholdVal.textContent = savedFaceConfig.threshold.toFixed(2);
+      registeredFaceCountBadge.textContent = `${registeredFaces.length}名`;
+
+      if (savedFaceConfig.enabled) {
+        mainAuthStatePill.textContent = `認証ON（${registeredFaces.length}名登録）`;
+        mainAuthStatePill.className = "auth-pill on";
+      } else {
+        mainAuthStatePill.textContent = "認証OFF（全員反応）";
+        mainAuthStatePill.className = "auth-pill off";
+      }
+    }
+
+    function euclideanDistance(desc1, desc2) {
+      let sum = 0;
+      for (let i = 0; i < desc1.length; i++) {
+        const diff = desc1[i] - desc2[i];
+        sum += diff * diff;
+      }
+      return Math.sqrt(sum);
+    }
+
+    function findBestMatchingFace(queryDescriptor) {
+      if (registeredFaces.length === 0) return null;
+      let bestMatch = null;
+      let bestDist = Infinity;
+
+      for (const person of registeredFaces) {
+        const dist = euclideanDistance(queryDescriptor, person.descriptor);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestMatch = person;
+        }
+      }
+
+      if (bestMatch && bestDist <= savedFaceConfig.threshold) {
+        return { name: bestMatch.name, id: bestMatch.id, distance: bestDist };
+      }
+      return null;
+    }
+
+    function renderRegisteredFaces() {
+      registeredFaceListContainer.innerHTML = "";
+      updateFaceAuthBannerUI();
+
+      if (registeredFaces.length === 0) {
+        registeredFaceListContainer.innerHTML = `<div style="color:#64748b; font-size:0.83rem; text-align:center; padding:12px;">まだ顔が登録されていません。上のカメラ枠に顔を映して登録してください。</div>`;
+        return;
+      }
+
+      registeredFaces.forEach((face, idx) => {
+        const card = document.createElement("div");
+        card.className = "registered-face-card" + (lastMatchedFaceName === face.name ? " matched-now" : "");
+
+        const leftWrap = document.createElement("div");
+        leftWrap.style.display = "flex";
+        leftWrap.style.alignItems = "center";
+        leftWrap.style.gap = "10px";
+
+        const img = document.createElement("img");
+        img.className = "face-thumb";
+        img.src = face.thumbnail || "";
+        img.alt = face.name;
+
+        const infoDiv = document.createElement("div");
+        infoDiv.innerHTML = `
+          <div style="font-weight: bold; font-size: 0.94rem; color: #f8fafc;">${escapeHtml(face.name)}</div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">登録日: ${escapeHtml(face.createdAt || "登録済")}</div>
+        `;
+
+        leftWrap.appendChild(img);
+        leftWrap.appendChild(infoDiv);
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "mini-btn mini-del";
+        delBtn.textContent = "削除";
+        delBtn.addEventListener("click", () => {
+          registeredFaces.splice(idx, 1);
+          saveFaceSettings();
+          renderRegisteredFaces();
+        });
+
+        card.appendChild(leftWrap);
+        card.appendChild(delBtn);
+        registeredFaceListContainer.appendChild(card);
+      });
+    }
+
+    faceAuthEnabledToggle.addEventListener("change", () => {
+      savedFaceConfig.enabled = faceAuthEnabledToggle.checked;
+      saveFaceSettings();
+    });
+
+    faceThresholdSlider.addEventListener("input", () => {
+      savedFaceConfig.threshold = parseInt(faceThresholdSlider.value, 10) / 100;
+      saveFaceSettings();
+    });
+
+    // カメラ映像から顔をキャプチャして登録するボタン
+    registerFaceBtn.addEventListener("click", async () => {
+      if (!isCameraActive || webcamVideo.readyState < 2) {
+        faceRegFeedback.textContent = "⚠️ カメラが起動していません。先にカメラをONにしてください。";
+        faceRegFeedback.style.color = "#ef4444";
+        return;
+      }
+      if (!faceModelsLoaded) {
+        faceRegFeedback.textContent = "⏳ 顔認証AIモデルを読み込み中です。数秒お待ちください...";
+        faceRegFeedback.style.color = "#f59e0b";
+        return;
+      }
+
+      registerFaceBtn.disabled = true;
+      faceRegFeedback.textContent = "🔍 顔を解析して特徴を抽出しています...";
+      faceRegFeedback.style.color = "#38bdf8";
+
+      try {
+        const detection = await faceapi
+          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (!detection) {
+          faceRegFeedback.textContent = "❌ 顔を検出できませんでした。明るい場所でカメラの正面を向いて再度押してください。";
+          faceRegFeedback.style.color = "#ef4444";
+          registerFaceBtn.disabled = false;
+          return;
+        }
+
+        const rawName = newFaceNameInput.value.trim();
+        const personName = rawName || `認証メンバー ${registeredFaces.length + 1}`;
+
+        // 顔の切り抜きサムネイル生成
+        const box = detection.detection.box;
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width = 96;
+        thumbCanvas.height = 96;
+        const tCtx = thumbCanvas.getContext("2d");
+        const pad = box.width * 0.2;
+        tCtx.drawImage(
+          webcamVideo,
+          Math.max(0, box.x - pad),
+          Math.max(0, box.y - pad),
+          box.width + pad * 2,
+          box.height + pad * 2,
+          0, 0, 96, 96
+        );
+        const thumbnailDataUrl = thumbCanvas.toDataURL("image/jpeg", 0.75);
+
+        const now = new Date();
+        const createdStr = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+        registeredFaces.push({
+          id: `face_${Date.now()}`,
+          name: personName,
+          descriptor: Array.from(detection.descriptor),
+          thumbnail: thumbnailDataUrl,
+          createdAt: createdStr
+        });
+
+        newFaceNameInput.value = "";
+        saveFaceSettings();
+        renderRegisteredFaces();
+
+        faceRegFeedback.textContent = `✅ 「${personName}」さんの顔を登録しました！`;
+        faceRegFeedback.style.color = "#10b981";
+      } catch (err) {
+        faceRegFeedback.textContent = "❌ 顔登録中にエラーが発生しました。もう一度お試しください。";
+        faceRegFeedback.style.color = "#ef4444";
+      } finally {
+        registerFaceBtn.disabled = false;
+      }
+    });
+
+    // ==========================================
     // 入室・退出の曲選択プルダウン描画
     // ==========================================
     function populateDirectionActionSelects() {
@@ -1176,9 +1532,6 @@
       localStorage.setItem("person_sound_dir_modes_v1", JSON.stringify(savedDirectionModes));
     });
 
-    // ==========================================
-    // カメラ小窓の「入 / 出」方向ラベル更新
-    // ==========================================
     function updateCamDirectionTags() {
       if (enterDirectionSelect.value === "left_to_right") {
         camLeftTag.textContent = "入 ➔";
@@ -1279,7 +1632,9 @@
       }
     }
 
-    function handlePersonDirectionEvent(directionType, isTest = false) {
+    function handlePersonDirectionEvent(directionType, isTest = false, authPersonName = "") {
+      const nameTag = authPersonName ? `[${authPersonName}] ` : "";
+
       if (directionType === "enter") {
         if (isTest) {
           executeActionByCode(enterSoundSelect.value, true, "【入室テスト】");
@@ -1291,25 +1646,25 @@
         setTimeout(() => countStatBox.classList.remove("pulse"), 350);
 
         if (currentCount >= targetCount) {
-          executeActionByCode(enterSoundSelect.value, false, "➡ 入室: ");
+          executeActionByCode(enterSoundSelect.value, false, `➡ ${nameTag}入室: `);
           currentCount = 0;
           currentCountEl.textContent = "0";
         } else {
-          systemStatus.textContent = `➡ 入室検知（${currentCount}/${targetCount}人・あと ${targetCount - currentCount} 人）`;
+          systemStatus.textContent = `➡ ${nameTag}入室認証（${currentCount}/${targetCount}人・あと ${targetCount - currentCount} 人）`;
           systemStatus.style.color = "#10b981";
         }
       } else if (directionType === "exit") {
         if (isTest || exitImmediateToggle.checked) {
-          executeActionByCode(exitSoundSelect.value, isTest, isTest ? "【退出テスト】" : "⬅ 退出: ");
+          executeActionByCode(exitSoundSelect.value, isTest, isTest ? "【退出テスト】" : `⬅ ${nameTag}退出: `);
         } else {
           currentCount++;
           currentCountEl.textContent = currentCount;
           if (currentCount >= targetCount) {
-            executeActionByCode(exitSoundSelect.value, false, "⬅ 退出: ");
+            executeActionByCode(exitSoundSelect.value, false, `⬅ ${nameTag}退出: `);
             currentCount = 0;
             currentCountEl.textContent = "0";
           } else {
-            systemStatus.textContent = `⬅ 退出検知（あと ${targetCount - currentCount} 人）`;
+            systemStatus.textContent = `⬅ ${nameTag}退出認証（あと ${targetCount - currentCount} 人）`;
             systemStatus.style.color = "#f59e0b";
           }
         }
@@ -1320,7 +1675,7 @@
     testExitBtn.addEventListener("click", () => handlePersonDirectionEvent("exit", true));
 
     // ==========================================
-    // パス正規化（GitHub直下ファイル名にも対応）
+    // パス正規化
     // ==========================================
     function normalizeAudioPath(rawInput) {
       const trimmed = rawInput.trim();
@@ -1350,17 +1705,31 @@
         toggleCamPowerBtn.textContent = "📷 カメラ起動（検知開始）";
         toggleCamPowerBtn.classList.add("off-state");
         cameraPipWrapper.classList.add("cam-stopped");
-        cameraPipWrapper.classList.remove("person-active");
+        cameraPipWrapper.classList.remove("person-active", "person-unverified");
         settingsCamToggleBtn.textContent = "📷 現在OFF（押してON）";
         settingsCamToggleBtn.style.background = "#334155";
         settingsCamToggleBtn.style.color = "#f8fafc";
       }
     }
 
+    async function loadAllAiModels() {
+      if (!personModel) {
+        personModel = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+      }
+      if (!faceModelsLoaded && typeof faceapi !== "undefined") {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL)
+        ]);
+        faceModelsLoaded = true;
+      }
+    }
+
     async function startCameraHardware() {
       if (isCameraActive) return;
       try {
-        systemStatus.textContent = "📷 カメラを起動しています...";
+        systemStatus.textContent = "📷 カメラと顔認証AIを起動しています...";
         systemStatus.style.color = "#38bdf8";
 
         mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -1370,9 +1739,7 @@
         webcamVideo.srcObject = mediaStream;
         await webcamVideo.play();
 
-        if (!model) {
-          model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
-        }
+        await loadAllAiModels();
 
         isCameraActive = true;
         trackStartX = null;
@@ -1380,14 +1747,13 @@
         trackTriggeredThisPass = false;
         updateCameraButtonsUI();
         if (currentPlayingIndex === -1) {
-          systemStatus.textContent = "👀 入退出の通過を待機中...";
-          systemStatus.style.color = "#38bdf8";
+          restoreIdleStatus();
         }
         detectLoop();
       } catch (err) {
         isCameraActive = false;
         updateCameraButtonsUI();
-        systemStatus.textContent = "❌ カメラを起動できませんでした（権限を確認してください）";
+        systemStatus.textContent = "❌ カメラまたはAIモデルの起動に失敗しました";
         systemStatus.style.color = "#ef4444";
       }
     }
@@ -1541,7 +1907,7 @@
     }
 
     // ==========================================
-    // リアルタイム音量制御（フェードイン・フェードアウト・強調区間）
+    // リアルタイム音量制御
     // ==========================================
     function stopVolumeEnvelope() {
       if (volumeEnvelopeRafId) {
@@ -1618,7 +1984,7 @@
     }
 
     // ==========================================
-    // ハンバーガーメニュー開閉＆画面切り替え
+    // ハンバーガーメニュー開閉＆画面切り替え（顔認証画面も自動カメラON対応）
     // ==========================================
     function openDrawer() {
       navDrawer.classList.add("open");
@@ -1645,14 +2011,18 @@
           view.classList.toggle("active", view.id === targetId);
         });
 
-        pageTitle.textContent = targetId === "mainScreen" ? "🎵 メイン画面" : "⚙️ 設定画面";
+        if (targetId === "mainScreen") pageTitle.textContent = "🎵 メイン画面";
+        else if (targetId === "faceAuthScreen") pageTitle.textContent = "👤 顔認証設定";
+        else pageTitle.textContent = "⚙️ 設定画面";
+
         closeDrawer();
 
+        // 一般設定画面ではカメラ自動オフ、メイン・顔認証画面では自動再開
         if (targetId === "settingsScreen") {
           if (autoOffInSettingsToggle.checked && isCameraActive) {
             stopCameraHardware("⚙️ 設定中のためカメラを自動停止しています");
           }
-        } else if (targetId === "mainScreen") {
+        } else {
           if (!userManualCamOff && !isCameraActive && startOverlay.style.display === "none") {
             await startCameraHardware();
           }
@@ -2008,8 +2378,15 @@
     // ==========================================
     function restoreIdleStatus() {
       if (isCameraActive) {
-        systemStatus.textContent = "👀 入退出の通過を待機中...";
-        systemStatus.style.color = "#38bdf8";
+        if (savedFaceConfig.enabled) {
+          systemStatus.textContent = registeredFaces.length > 0
+            ? `👤 顔認証待機中（登録済み ${registeredFaces.length}名のみ反応）`
+            : "⚠️ 顔認証ONですが顔が未登録です（「☰ ➔ 👤 顔認証設定」から登録）";
+          systemStatus.style.color = registeredFaces.length > 0 ? "#38bdf8" : "#f59e0b";
+        } else {
+          systemStatus.textContent = "👀 入退出の通過を待機中（全員反応モード）";
+          systemStatus.style.color = "#38bdf8";
+        }
       } else {
         systemStatus.textContent = "📷 カメラは停止中です（「カメラ起動」で検知開始）";
         systemStatus.style.color = "#94a3b8";
@@ -2244,16 +2621,74 @@
     });
 
     // ==========================================
-    // 人物検知＆左右移動方向（入室・退出）判定AIループ
+    // 顔認証（非同期バックグラウンド照合）
+    // ==========================================
+    async function runFaceRecognitionStep() {
+      if (isRunningFaceCheck || !faceModelsLoaded || !isCameraActive || webcamVideo.readyState < 2) return;
+      if (!savedFaceConfig.enabled && activeScreenId !== "faceAuthScreen") return;
+
+      isRunningFaceCheck = true;
+      try {
+        const detection = await faceapi
+          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.45 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        const now = Date.now();
+        if (detection) {
+          const match = findBestMatchingFace(detection.descriptor);
+          if (match) {
+            lastMatchedFaceName = match.name;
+            lastMatchedTime = now;
+            mainMatchedName.textContent = `${match.name}（認証OK）`;
+            mainMatchedName.style.color = "#10b981";
+            faceLiveDetectBadge.textContent = `✅ 認証一致: ${match.name}`;
+            faceLiveDetectBadge.style.color = "#10b981";
+          } else {
+            if (now - lastMatchedTime > 2000) {
+              lastMatchedFaceName = null;
+              mainMatchedName.textContent = "未登録の顔（スキップ）";
+              mainMatchedName.style.color = "#f59e0b";
+            }
+            faceLiveDetectBadge.textContent = "👤 顔検出中（未登録）";
+            faceLiveDetectBadge.style.color = "#38bdf8";
+          }
+        } else {
+          if (now - lastMatchedTime > 2500) {
+            lastMatchedFaceName = null;
+            mainMatchedName.textContent = "待機中";
+            mainMatchedName.style.color = "#f8fafc";
+          }
+          faceLiveDetectBadge.textContent = "カメラに顔を映してください";
+          faceLiveDetectBadge.style.color = "#94a3b8";
+        }
+      } catch (e) {
+        // 顔検出エラーは無視して継続
+      } finally {
+        isRunningFaceCheck = false;
+      }
+    }
+
+    // ==========================================
+    // メイン検出ループ（人物移動方向 ＋ 顔認証統合）
     // ==========================================
     async function detectLoop() {
-      if (!isCameraActive || !model) return;
+      if (!isCameraActive || !personModel) return;
 
       if (webcamVideo.readyState >= 2 && webcamVideo.videoWidth > 0) {
-        const predictions = await model.detect(webcamVideo);
-        const ctx = overlayCanvas.getContext("2d");
         const vw = webcamVideo.videoWidth;
         const vh = webcamVideo.videoHeight;
+
+        // 顔認証設定画面を開いている場合はプレビューキャンバスにも映像を描画
+        if (activeScreenId === "faceAuthScreen") {
+          faceMirrorCanvas.width = vw;
+          faceMirrorCanvas.height = vh;
+          const mCtx = faceMirrorCanvas.getContext("2d");
+          mCtx.drawImage(webcamVideo, 0, 0, vw, vh);
+        }
+
+        const predictions = await personModel.detect(webcamVideo);
+        const ctx = overlayCanvas.getContext("2d");
         overlayCanvas.width = vw;
         overlayCanvas.height = vh;
         ctx.clearRect(0, 0, vw, vh);
@@ -2262,22 +2697,33 @@
         const now = Date.now();
 
         if (persons.length > 0) {
-          cameraPipWrapper.classList.add("person-active");
+          // 人物が映っている間、並列で顔認証チェックを走らせる
+          runFaceRecognitionStep();
+
+          const isVerifiedNow = !savedFaceConfig.enabled || (lastMatchedFaceName !== null && (now - lastMatchedTime <= 2500));
+
+          if (isVerifiedNow) {
+            cameraPipWrapper.classList.add("person-active");
+            cameraPipWrapper.classList.remove("person-unverified");
+          } else {
+            cameraPipWrapper.classList.remove("person-active");
+            cameraPipWrapper.classList.add("person-unverified");
+          }
 
           persons.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
           const mainPerson = persons[0];
 
           persons.forEach((p, idx) => {
             const [x, y, w, h] = p.bbox;
-            ctx.strokeStyle = idx === 0 ? "#10b981" : "#38bdf8";
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = isVerifiedNow ? "#10b981" : "#f59e0b";
+            ctx.lineWidth = idx === 0 ? 4 : 2;
             ctx.strokeRect(x, y, w, h);
           });
 
           const [mx, my, mw, mh] = mainPerson.bbox;
           const centerXNorm = (mx + mw / 2) / vw;
 
-          ctx.fillStyle = "#f59e0b";
+          ctx.fillStyle = isVerifiedNow ? "#10b981" : "#f59e0b";
           ctx.beginPath();
           ctx.arc(mx + mw / 2, my + mh / 2, 7, 0, Math.PI * 2);
           ctx.fill();
@@ -2289,9 +2735,17 @@
           trackLastX = centerXNorm;
           trackLastSeenTime = now;
 
+          // 画面幅の 18% 以上横に移動したら「通過方向」を確定
           const deltaX = trackLastX - trackStartX;
           if (!trackTriggeredThisPass && Math.abs(deltaX) >= 0.18) {
-            if (now - lastTriggerTime >= cooldownSec * 1000) {
+            if (!isVerifiedNow) {
+              // 顔認証ONで未登録の人の場合は音を鳴らさず通過記録だけ完了にする
+              trackTriggeredThisPass = true;
+              if (currentPlayingIndex === -1) {
+                systemStatus.textContent = "🚫 未登録の人が通過したため再生をスキップしました";
+                systemStatus.style.color = "#94a3b8";
+              }
+            } else if (now - lastTriggerTime >= cooldownSec * 1000) {
               lastTriggerTime = now;
               trackTriggeredThisPass = true;
 
@@ -2300,11 +2754,12 @@
                 ? movedLeftToRight
                 : !movedLeftToRight;
 
-              handlePersonDirectionEvent(isEnter ? "enter" : "exit", false);
+              const authName = savedFaceConfig.enabled ? (lastMatchedFaceName || "") : "";
+              handlePersonDirectionEvent(isEnter ? "enter" : "exit", false, authName);
             }
           }
         } else {
-          cameraPipWrapper.classList.remove("person-active");
+          cameraPipWrapper.classList.remove("person-active", "person-unverified");
           if (trackStartX !== null && now - trackLastSeenTime > 1500) {
             trackStartX = null;
             trackLastX = null;
@@ -2320,7 +2775,7 @@
 
     startBtn.addEventListener("click", async () => {
       startBtn.disabled = true;
-      loadingMsg.textContent = "カメラと人物検知AIを準備しています（初回は数秒かかります）...";
+      loadingMsg.textContent = "カメラ・人物検知AI・顔認証AIを準備しています（初回は数秒かかります）...";
 
       try {
         ensureAudioContext();
@@ -2329,6 +2784,7 @@
         loadDailyStats();
         renderSfxPads();
         renderAllSongLists();
+        renderRegisteredFaces();
         updateCamDirectionTags();
 
         startOverlay.style.display = "none";
@@ -2343,6 +2799,7 @@
     loadDailyStats();
     renderSfxPads();
     renderAllSongLists();
+    renderRegisteredFaces();
     updateCameraButtonsUI();
     updateCamDirectionTags();
   </script>
