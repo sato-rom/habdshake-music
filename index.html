@@ -791,7 +791,7 @@
   <div id="startOverlay">
     <h2 style="font-size: 1.5rem; color: #38bdf8;">👤 顔認証・入退出サウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      顔認証された人の通過を確実にカウントし、<br>Dropboxリンクや外部URL・GitHub音源を再生します。
+      高精度な顔認証とカウントタイミング指定、<br>効果音の自動URL補正・ファイル名カスタムに対応しています。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -805,10 +805,10 @@
       <span>🎵</span><span>メイン（状況・効果音・曲）</span>
     </button>
     <button class="nav-item-btn" data-target="faceAuthScreen" type="button">
-      <span>👤</span><span>顔認証設定（登録・管理）</span>
+      <span>👤</span><span>顔認証設定（登録・精度確認）</span>
     </button>
     <button class="nav-item-btn" data-target="settingsScreen" type="button">
-      <span>⚙️</span><span>設定（歩く速さ・方向・曲）</span>
+      <span>⚙️</span><span>設定（カウント時間・効果音・曲）</span>
     </button>
   </nav>
 
@@ -911,7 +911,7 @@
           <div style="flex: 1;">
             <div style="font-weight: bold;">登録した人の顔だけ反応させる</div>
             <div style="font-size: 0.74rem; color: #94a3b8; margin-top: 2px;">
-              通過中に1度でも顔が一致すれば確実にカウントされます
+              認知されにくい場合は、下の数値（ゆるさ）を上げるか同じ名前で別角度の顔を追加登録してください
             </div>
           </div>
           <label class="toggle-switch">
@@ -922,11 +922,11 @@
 
         <div class="ctrl-row" style="padding-top: 8px; border-top: 1px dashed #334155;">
           <span style="white-space: nowrap;">🎯 一致判定のゆるさ:</span>
-          <input type="range" id="faceThresholdSlider" min="35" max="68" value="52" />
-          <span id="faceThresholdVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">0.52</span>
+          <input type="range" id="faceThresholdSlider" min="40" max="75" value="58" />
+          <span id="faceThresholdVal" style="width: 44px; text-align: right; color: #f59e0b; font-weight: bold;">0.58</span>
         </div>
-        <div style="font-size: 0.72rem; color: #94a3b8;">
-          ※ 歩きながらでも反応しやすいよう標準を 0.52 に設定しています。
+        <div id="faceScoreLiveDebug" style="font-size: 0.76rem; color: #38bdf8; background: #0f172a; padding: 7px 10px; border-radius: 8px; border: 1px solid #334155;">
+          🔍 リアルタイム一致スコア: カメラに顔を映すと表示されます（設定値以下で認証OK）
         </div>
       </div>
 
@@ -942,7 +942,7 @@
         </div>
 
         <div class="url-input-col">
-          <input type="text" id="newFaceNameInput" class="text-input" placeholder="登録する人の名前（例：田中、店長 など）" />
+          <input type="text" id="newFaceNameInput" class="text-input" placeholder="登録する人の名前（同じ名前で複数角度を追加登録できます）" />
           <button class="btn btn-face-reg" id="registerFaceBtn" type="button">📸 今のカメラ映像から顔を登録する</button>
         </div>
         <div id="faceRegFeedback" style="font-size: 0.8rem; text-align: center; color: #94a3b8;">
@@ -961,15 +961,91 @@
     </div>
 
     <!-- ==========================================
-         画面3：一般設定画面（歩く速さ・入退出方向・カメラ・曲編集）
+         画面3：一般設定画面
          ========================================== -->
     <div id="settingsScreen" class="screen-view">
+      <!-- 曲再生中に流れるカウント音の設定（タイミング・長さ・BPM対応） -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">⏱️ 曲再生中のカウント音設定</span>
+          <button class="mini-btn mini-play" id="testCountSoundBtn" type="button">▶ 試聴</button>
+        </div>
+
+        <div class="ctrl-row">
+          <span>📍 カウントを入れる時期:</span>
+          <select id="countTimingMode" class="select-input">
+            <option value="end">曲が終わる直前（最後から）</option>
+            <option value="start">曲が始まってすぐ（最初から）</option>
+            <option value="custom_sec">開始から指定秒数後に鳴らす</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row" id="countCustomOffsetRow" style="display: none;">
+          <span>⏱️ 開始から何秒後に鳴らすか:</span>
+          <div class="num-control">
+            <button class="step-btn" id="countOffsetMinusBtn" type="button">−</button>
+            <span class="val-badge" id="countOffsetDisplay">0秒後</span>
+            <button class="step-btn" id="countOffsetPlusBtn" type="button">＋</button>
+          </div>
+        </div>
+
+        <div class="ctrl-row">
+          <span>⏳ カウントを鳴らす長さ:</span>
+          <div class="num-control">
+            <button class="step-btn" id="countDurMinusBtn" type="button">−</button>
+            <span class="val-badge" id="countDurDisplay">5秒間</span>
+            <button class="step-btn" id="countDurPlusBtn" type="button">＋</button>
+          </div>
+        </div>
+
+        <div class="ctrl-row">
+          <span>🥁 カウントの速さ (BPM):</span>
+          <div class="num-control">
+            <button class="step-btn" id="bpmMinusBtn" type="button">−</button>
+            <span class="val-badge" id="bpmDisplay">120 BPM</span>
+            <button class="step-btn" id="bpmPlusBtn" type="button">＋</button>
+          </div>
+        </div>
+        <div class="ctrl-row" style="margin-top: -4px;">
+          <span style="font-size: 0.78rem; color: #94a3b8; white-space: nowrap;">BPMスライダー:</span>
+          <input type="range" id="bpmSlider" min="40" max="240" value="120" />
+        </div>
+
+        <div class="ctrl-row">
+          <span>🔔 音の種類:</span>
+          <select id="countSoundType" class="select-input">
+            <option value="beep">ピッ（電子音）</option>
+            <option value="chime">ポーン（チャイム風）</option>
+            <option value="pop">ポッ（ソフト音）</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <span style="white-space: nowrap;">🔊 カウント音の大きさ:</span>
+          <input type="range" id="countVolumeSlider" min="0" max="100" value="70" />
+          <span id="countVolumeVal" style="width: 42px; text-align: right;">70%</span>
+        </div>
+      </div>
+
+      <!-- ワンタップ効果音パッド設定（ファイル名編集＋音量） -->
+      <div class="card">
+        <div style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ 効果音ボタン（拍手・パフ等）のファイル設定</div>
+        <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
+          ※ 拍手やパフが鳴らない場合は、GitHubに置いた実際のファイル名（またはDropboxリンク）に合わせて書き換えてください。
+        </div>
+
+        <div class="ctrl-row">
+          <span style="white-space: nowrap;">🔊 効果音の大きさ:</span>
+          <input type="range" id="sfxVolumeSlider" min="0" max="100" value="90" />
+          <span id="sfxVolumeVal" style="width: 42px; text-align: right;">90%</span>
+        </div>
+
+        <div id="sfxConfigList" style="display: flex; flex-direction: column; gap: 8px; padding-top: 6px; border-top: 1px dashed #334155;"></div>
+      </div>
+
       <!-- 歩く速さ・通過感度設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🏃 歩く速さ・通過感度設定</div>
-        <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
-          ※ 設置場所の通路幅や人の歩く速さに合わせて選べます。速歩きで通り過ぎてしまう場合は「速歩き」を選んでください。
-        </div>
 
         <div class="speed-preset-grid">
           <button type="button" class="speed-btn" data-speed="fast">
@@ -1002,9 +1078,6 @@
       <!-- 入退出の方向＆曲割り当て設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #10b981;">🚪 入退出の方向判定・曲割り当て設定</div>
-        <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
-          ※ 基準は<b>「右上のカメラ小窓に映っている画面の左右」</b>です。入室・退出ともに登録曲から再生されます。
-        </div>
 
         <div class="ctrl-row">
           <span>🧭 入室と判定する向き:</span>
@@ -1096,61 +1169,6 @@
         </div>
       </div>
 
-      <!-- ワンタップ効果音パッド音量 -->
-      <div class="card">
-        <div style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ 効果音ボタンの音量設定</div>
-        <div class="ctrl-row">
-          <span style="white-space: nowrap;">🔊 効果音の大きさ:</span>
-          <input type="range" id="sfxVolumeSlider" min="0" max="100" value="90" />
-          <span id="sfxVolumeVal" style="width: 42px; text-align: right;">90%</span>
-        </div>
-      </div>
-
-      <!-- 曲再生中に流れるカウント音の設定（BPM対応） -->
-      <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">⏱️ 曲再生中のカウント音設定</span>
-          <button class="mini-btn mini-play" id="testCountSoundBtn" type="button">▶ 試聴</button>
-        </div>
-
-        <div class="ctrl-row">
-          <span>⏳ カウントが流れる時間:</span>
-          <div class="num-control">
-            <button class="step-btn" id="countDurMinusBtn" type="button">−</button>
-            <span class="val-badge" id="countDurDisplay">5秒間</span>
-            <button class="step-btn" id="countDurPlusBtn" type="button">＋</button>
-          </div>
-        </div>
-
-        <div class="ctrl-row">
-          <span>🥁 カウントの速さ (BPM):</span>
-          <div class="num-control">
-            <button class="step-btn" id="bpmMinusBtn" type="button">−</button>
-            <span class="val-badge" id="bpmDisplay">120 BPM</span>
-            <button class="step-btn" id="bpmPlusBtn" type="button">＋</button>
-          </div>
-        </div>
-        <div class="ctrl-row" style="margin-top: -4px;">
-          <span style="font-size: 0.78rem; color: #94a3b8; white-space: nowrap;">BPMスライダー:</span>
-          <input type="range" id="bpmSlider" min="40" max="240" value="120" />
-        </div>
-
-        <div class="ctrl-row">
-          <span>🔔 音の種類:</span>
-          <select id="countSoundType" class="select-input">
-            <option value="beep">ピッ（電子音）</option>
-            <option value="chime">ポーン（チャイム風）</option>
-            <option value="pop">ポッ（ソフト音）</option>
-          </select>
-        </div>
-
-        <div class="ctrl-row">
-          <span style="white-space: nowrap;">🔊 カウント音の大きさ:</span>
-          <input type="range" id="countVolumeSlider" min="0" max="100" value="70" />
-          <span id="countVolumeVal" style="width: 42px; text-align: right;">70%</span>
-        </div>
-      </div>
-
       <!-- 外部リンクURL・GitHubファイル追加＆1曲ごとの個別設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 曲リストの追加・個別設定</div>
@@ -1176,9 +1194,9 @@
     const FACE_MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model";
 
     // =========================================================
-    // ★ ワンタップ効果音ボタン定義（GitHubメイン直下のファイル）
+    // ★ ワンタップ効果音ボタン初期定義
     // =========================================================
-    const SFX_BUTTONS = [
+    const DEFAULT_SFX_BUTTONS = [
       { emoji: "🎉", label: "歓声", file: "./歓声と拍手1.mp3" },
       { emoji: "👏", label: "拍手", file: "./大勢で拍手.mp3" },
       { emoji: "📯", label: "ラッパ", file: "./パフ.mp3" },
@@ -1248,6 +1266,7 @@
     const faceAuthEnabledToggle = document.getElementById("faceAuthEnabledToggle");
     const faceThresholdSlider = document.getElementById("faceThresholdSlider");
     const faceThresholdVal = document.getElementById("faceThresholdVal");
+    const faceScoreLiveDebug = document.getElementById("faceScoreLiveDebug");
     const faceLiveDetectBadge = document.getElementById("faceLiveDetectBadge");
     const faceMirrorCanvas = document.getElementById("faceMirrorCanvas");
     const newFaceNameInput = document.getElementById("newFaceNameInput");
@@ -1273,6 +1292,7 @@
     const liveVolBar = document.getElementById("liveVolBar");
     const liveVolText = document.getElementById("liveVolText");
     const sfxPadGrid = document.getElementById("sfxPadGrid");
+    const sfxConfigList = document.getElementById("sfxConfigList");
 
     const targetMinusBtn = document.getElementById("targetMinusBtn");
     const targetPlusBtn = document.getElementById("targetPlusBtn");
@@ -1288,6 +1308,12 @@
 
     const sfxVolumeSlider = document.getElementById("sfxVolumeSlider");
     const sfxVolumeVal = document.getElementById("sfxVolumeVal");
+
+    const countTimingMode = document.getElementById("countTimingMode");
+    const countCustomOffsetRow = document.getElementById("countCustomOffsetRow");
+    const countOffsetMinusBtn = document.getElementById("countOffsetMinusBtn");
+    const countOffsetPlusBtn = document.getElementById("countOffsetPlusBtn");
+    const countOffsetDisplay = document.getElementById("countOffsetDisplay");
 
     const countDurMinusBtn = document.getElementById("countDurMinusBtn");
     const countDurPlusBtn = document.getElementById("countDurPlusBtn");
@@ -1323,6 +1349,9 @@
     let isCamHidden = false;
     let activeScreenId = "mainScreen";
 
+    // 効果音ボタンリスト（localStorage保存）
+    let sfxButtons = JSON.parse(localStorage.getItem("person_sound_sfx_v1") || "null") || DEFAULT_SFX_BUTTONS.map(x => ({ ...x }));
+
     // 歩く速さ・通過感度設定（localStorage保存）
     let savedWalkConfig = JSON.parse(localStorage.getItem("person_sound_walk_cfg_v1") || "null") || {
       preset: "normal",
@@ -1333,7 +1362,7 @@
     // 顔認証データ（localStorage保存）
     let savedFaceConfig = JSON.parse(localStorage.getItem("person_sound_face_cfg_v1") || "null") || {
       enabled: true,
-      threshold: 0.52
+      threshold: 0.58
     };
     let registeredFaces = JSON.parse(localStorage.getItem("person_sound_faces_v1") || "[]");
     let lastMatchedFaceName = null;
@@ -1362,11 +1391,21 @@
     let sfxMasterVolume = 0.9;
     let activeSfxAudios = [];
 
-    let countDurIndex = 5;
-    let countSoundDurationSec = COUNT_DURATION_STEPS[countDurIndex];
-    let countBpm = 120;
-    let countSoundMode = "beep";
-    let countSoundVol = 0.7;
+    // カウント音設定（タイミング指定対応）
+    let savedCountConfig = JSON.parse(localStorage.getItem("person_sound_count_cfg_v1") || "null") || {
+      timingMode: "end",   // "end" | "start" | "custom_sec"
+      offsetSec: 0,
+      durIndex: 5,
+      bpm: 120,
+      soundMode: "beep",
+      volume: 0.7
+    };
+
+    let countDurIndex = savedCountConfig.durIndex;
+    let countSoundDurationSec = COUNT_DURATION_STEPS[countDurIndex] ?? 5;
+    let countBpm = savedCountConfig.bpm;
+    let countSoundMode = savedCountConfig.soundMode;
+    let countSoundVol = savedCountConfig.volume;
 
     let stopTimerId = null;
     let countStartTimerId = null;
@@ -1376,7 +1415,7 @@
     let currentPlayingIndex = -1;
 
     // ==========================================
-    // パス正規化 & Dropboxリンク自動変換（dl=0/1 -> raw=1）
+    // パス正規化 & Dropboxリンク自動変換
     // ==========================================
     function normalizeAudioPath(rawInput) {
       const trimmed = (rawInput || "").trim();
@@ -1385,15 +1424,12 @@
       if (/^https?:\/\//i.test(trimmed)) {
         try {
           const urlObj = new URL(trimmed);
-          // Dropbox共有リンクの場合は直接ストリーミング可能な raw=1 に自動変換
           if (urlObj.hostname.includes("dropbox.com")) {
             urlObj.searchParams.delete("dl");
             urlObj.searchParams.set("raw", "1");
             return urlObj.toString();
           }
-        } catch (e) {
-          // URLパース失敗時はそのまま返す
-        }
+        } catch (e) {}
         return trimmed;
       }
 
@@ -1403,11 +1439,20 @@
       return `./${trimmed}`;
     }
 
+    function resolveSafeAudioUrl(rawPath) {
+      const normalized = normalizeAudioPath(rawPath);
+      if (/^https?:\/\//i.test(normalized)) {
+        return normalized;
+      }
+      // 日本語ファイル名などの文字化け・404を防ぐため encodeURI を適用
+      const fullUrl = new URL(normalized, window.location.href).href;
+      return encodeURI(decodeURI(fullUrl));
+    }
+
     function isGitHubRelativePath(url) {
       return !/^https?:\/\//i.test(url);
     }
 
-    // 曲リスト復元（既存リスト内のDropboxリンクも自動変換）
     let rawSaved = JSON.parse(localStorage.getItem("person_sound_songs_v6") || "null");
     let songList = Array.isArray(rawSaved)
       ? rawSaved.map(s => ({
@@ -1423,9 +1468,51 @@
         }))
       : [...DEFAULT_SONGS];
 
-    // CORSブロックを防ぐため crossOrigin は指定しない
     const audioPlayer = new Audio();
     audioPlayer.preload = "auto";
+
+    // ==========================================
+    // カウント音タイミング・設定の保存とUI同期
+    // ==========================================
+    function saveCountConfig() {
+      savedCountConfig.timingMode = countTimingMode.value;
+      savedCountConfig.durIndex = countDurIndex;
+      savedCountConfig.bpm = countBpm;
+      savedCountConfig.soundMode = countSoundMode;
+      savedCountConfig.volume = countSoundVol;
+      localStorage.setItem("person_sound_count_cfg_v1", JSON.stringify(savedCountConfig));
+    }
+
+    function syncCountConfigUI() {
+      countTimingMode.value = savedCountConfig.timingMode || "end";
+      countCustomOffsetRow.style.display = countTimingMode.value === "custom_sec" ? "flex" : "none";
+      countOffsetDisplay.textContent = `${savedCountConfig.offsetSec || 0}秒後`;
+      countDurDisplay.textContent = countSoundDurationSec === 0 ? "OFF（0秒）" : `${countSoundDurationSec}秒間`;
+      bpmDisplay.textContent = `${countBpm} BPM`;
+      bpmSlider.value = String(countBpm);
+      countSoundType.value = countSoundMode;
+      const volPct = Math.round(countSoundVol * 100);
+      countVolumeSlider.value = String(volPct);
+      countVolumeVal.textContent = `${volPct}%`;
+    }
+
+    countTimingMode.addEventListener("change", () => {
+      savedCountConfig.timingMode = countTimingMode.value;
+      syncCountConfigUI();
+      saveCountConfig();
+    });
+
+    countOffsetMinusBtn.addEventListener("click", () => {
+      savedCountConfig.offsetSec = Math.max(0, (savedCountConfig.offsetSec || 0) - 1);
+      syncCountConfigUI();
+      saveCountConfig();
+    });
+
+    countOffsetPlusBtn.addEventListener("click", () => {
+      savedCountConfig.offsetSec = Math.min(300, (savedCountConfig.offsetSec || 0) + 1);
+      syncCountConfigUI();
+      saveCountConfig();
+    });
 
     // ==========================================
     // 歩く速さ・通過感度設定のUI＆保存
@@ -1480,7 +1567,7 @@
     });
 
     // ==========================================
-    // 顔認証データの保存・UI更新・照合ロジック
+    // 顔認証データの保存・UI更新・複数パターン照合ロジック
     // ==========================================
     function saveFaceSettings() {
       localStorage.setItem("person_sound_face_cfg_v1", JSON.stringify(savedFaceConfig));
@@ -1492,10 +1579,10 @@
       faceAuthEnabledToggle.checked = savedFaceConfig.enabled;
       faceThresholdSlider.value = String(Math.round(savedFaceConfig.threshold * 100));
       faceThresholdVal.textContent = savedFaceConfig.threshold.toFixed(2);
-      registeredFaceCountBadge.textContent = `${registeredFaces.length}名`;
+      registeredFaceCountBadge.textContent = `${registeredFaces.length}件`;
 
       if (savedFaceConfig.enabled) {
-        mainAuthStatePill.textContent = `認証ON（${registeredFaces.length}名登録）`;
+        mainAuthStatePill.textContent = `認証ON（${registeredFaces.length}件登録）`;
         mainAuthStatePill.className = "auth-pill on";
       } else {
         mainAuthStatePill.textContent = "認証OFF（全員反応）";
@@ -1505,7 +1592,8 @@
 
     function euclideanDistance(desc1, desc2) {
       let sum = 0;
-      for (let i = 0; i < desc1.length; i++) {
+      const len = Math.min(desc1.length, desc2.length);
+      for (let i = 0; i < len; i++) {
         const diff = desc1[i] - desc2[i];
         sum += diff * diff;
       }
@@ -1518,17 +1606,27 @@
       let bestDist = Infinity;
 
       for (const person of registeredFaces) {
-        const dist = euclideanDistance(queryDescriptor, person.descriptor);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestMatch = person;
+        // 複数パターンの顔ベクトル配列(descriptors)と単体(descriptor)の両方に対応
+        const descList = Array.isArray(person.descriptors)
+          ? person.descriptors
+          : (Array.isArray(person.descriptor) ? [person.descriptor] : []);
+
+        for (const desc of descList) {
+          const dist = euclideanDistance(queryDescriptor, desc);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestMatch = person;
+          }
         }
       }
 
-      if (bestMatch && bestDist <= savedFaceConfig.threshold) {
-        return { name: bestMatch.name, id: bestMatch.id, distance: bestDist };
-      }
-      return null;
+      if (!bestMatch) return null;
+      return {
+        name: bestMatch.name,
+        id: bestMatch.id,
+        distance: bestDist,
+        isMatch: bestDist <= savedFaceConfig.threshold
+      };
     }
 
     function renderRegisteredFaces() {
@@ -1541,6 +1639,7 @@
       }
 
       registeredFaces.forEach((face, idx) => {
+        const patternCount = Array.isArray(face.descriptors) ? face.descriptors.length : 1;
         const card = document.createElement("div");
         card.className = "registered-face-card" + (lastMatchedFaceName === face.name ? " matched-now" : "");
 
@@ -1556,8 +1655,8 @@
 
         const infoDiv = document.createElement("div");
         infoDiv.innerHTML = `
-          <div style="font-weight: bold; font-size: 0.94rem; color: #f8fafc;">${escapeHtml(face.name)}</div>
-          <div style="font-size: 0.72rem; color: #94a3b8;">登録日: ${escapeHtml(face.createdAt || "登録済")}</div>
+          <div style="font-weight: bold; font-size: 0.94rem; color: #f8fafc;">${escapeHtml(face.name)} <span style="font-size:0.72rem; color:#38bdf8;">(${patternCount}パターン学習済)</span></div>
+          <div style="font-size: 0.72rem; color: #94a3b8;">更新: ${escapeHtml(face.createdAt || "登録済")}</div>
         `;
 
         leftWrap.appendChild(img);
@@ -1606,8 +1705,9 @@
       faceRegFeedback.style.color = "#38bdf8";
 
       try {
+        // より精細な顔検出（inputSize: 320）で特徴を抽出
         const detection = await faceapi
-          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 }))
+          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
 
@@ -1619,7 +1719,7 @@
         }
 
         const rawName = newFaceNameInput.value.trim();
-        const personName = rawName || `認証メンバー ${registeredFaces.length + 1}`;
+        const personName = rawName || (registeredFaces[0] ? registeredFaces[0].name : "認証メンバー 1");
 
         const box = detection.detection.box;
         const thumbCanvas = document.createElement("canvas");
@@ -1639,20 +1739,37 @@
 
         const now = new Date();
         const createdStr = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const newDescriptor = Array.from(detection.descriptor);
 
-        registeredFaces.push({
-          id: `face_${Date.now()}`,
-          name: personName,
-          descriptor: Array.from(detection.descriptor),
-          thumbnail: thumbnailDataUrl,
-          createdAt: createdStr
-        });
+        // 同じ名前が既に登録されていれば顔パターンを追加（認識率アップ）
+        const existingIdx = registeredFaces.findIndex(f => f.name === personName);
+        if (existingIdx !== -1) {
+          const target = registeredFaces[existingIdx];
+          if (!Array.isArray(target.descriptors)) {
+            target.descriptors = target.descriptor ? [target.descriptor] : [];
+          }
+          target.descriptors.push(newDescriptor);
+          if (target.descriptors.length > 6) {
+            target.descriptors.shift();
+          }
+          target.thumbnail = thumbnailDataUrl;
+          target.createdAt = createdStr;
+          faceRegFeedback.textContent = `✅ 「${personName}」さんの別角度パターンを追加学習しました（計${target.descriptors.length}パターン）！`;
+        } else {
+          registeredFaces.push({
+            id: `face_${Date.now()}`,
+            name: personName,
+            descriptor: newDescriptor,
+            descriptors: [newDescriptor],
+            thumbnail: thumbnailDataUrl,
+            createdAt: createdStr
+          });
+          faceRegFeedback.textContent = `✅ 「${personName}」さんの顔を新規登録しました！`;
+        }
 
         newFaceNameInput.value = "";
         saveFaceSettings();
         renderRegisteredFaces();
-
-        faceRegFeedback.textContent = `✅ 「${personName}」さんの顔を登録しました！`;
         faceRegFeedback.style.color = "#10b981";
       } catch (err) {
         faceRegFeedback.textContent = "❌ 顔登録中にエラーが発生しました。もう一度お試しください。";
@@ -1703,54 +1820,125 @@
     enterDirectionSelect.addEventListener("change", updateCamDirectionTags);
 
     // ==========================================
-    // ワンタップ効果音パッド描画＆再生
+    // ワンタップ効果音パッド描画＆自動フォールバック再生
     // ==========================================
+    function saveSfxConfig() {
+      localStorage.setItem("person_sound_sfx_v1", JSON.stringify(sfxButtons));
+    }
+
     function renderSfxPads() {
       sfxPadGrid.innerHTML = "";
-      SFX_BUTTONS.forEach((sfx) => {
+      sfxButtons.forEach((sfx) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "sfx-pad-btn";
         const fileName = sfx.file.replace("./", "");
         btn.innerHTML = `
           <span class="sfx-emoji">${sfx.emoji}</span>
-          <span class="sfx-name">${sfx.label}</span>
-          <span class="sfx-file">${fileName}</span>
+          <span class="sfx-name">${escapeHtml(sfx.label)}</span>
+          <span class="sfx-file">${escapeHtml(fileName)}</span>
         `;
         btn.addEventListener("click", () => {
           triggerSfxSound(sfx, btn);
         });
         sfxPadGrid.appendChild(btn);
       });
+
+      // 設定画面側の効果音ファイル名編集リストも描画
+      sfxConfigList.innerHTML = "";
+      sfxButtons.forEach((sfx, idx) => {
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "6px";
+
+        const lbl = document.createElement("span");
+        lbl.style.fontSize = "0.82rem";
+        lbl.style.minWidth = "64px";
+        lbl.textContent = `${sfx.emoji} ${sfx.label}:`;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "text-input";
+        input.style.padding = "7px 9px";
+        input.style.fontSize = "0.8rem";
+        input.value = sfx.file;
+        input.addEventListener("change", () => {
+          sfxButtons[idx].file = normalizeAudioPath(input.value);
+          saveSfxConfig();
+          renderSfxPads();
+        });
+
+        const testBtn = document.createElement("button");
+        testBtn.type = "button";
+        testBtn.className = "mini-btn mini-play";
+        testBtn.textContent = "▶";
+        testBtn.addEventListener("click", () => triggerSfxSound(sfxButtons[idx]));
+
+        row.appendChild(lbl);
+        row.appendChild(input);
+        row.appendChild(testBtn);
+        sfxConfigList.appendChild(row);
+      });
+    }
+
+    function buildSfxCandidateUrls(rawFile) {
+      const normalized = normalizeAudioPath(rawFile);
+      const candidates = [resolveSafeAudioUrl(normalized)];
+
+      // 相対パスの場合、大文字拡張子(.MP3)や.wavも自動で候補に追加
+      if (isGitHubRelativePath(normalized)) {
+        if (normalized.endsWith(".mp3")) {
+          candidates.push(resolveSafeAudioUrl(normalized.replace(/\.mp3$/, ".MP3")));
+          candidates.push(resolveSafeAudioUrl(normalized.replace(/\.mp3$/, ".wav")));
+        } else if (normalized.endsWith(".MP3")) {
+          candidates.push(resolveSafeAudioUrl(normalized.replace(/\.MP3$/, ".mp3")));
+        }
+      }
+      return [...new Set(candidates)];
     }
 
     function triggerSfxSound(sfx, btnEl = null, prefixLabel = "") {
-      const resolvedUrl = new URL(sfx.file, window.location.href).href;
-      const sfxAudio = new Audio(resolvedUrl);
-      sfxAudio.volume = sfxMasterVolume;
-      activeSfxAudios.push(sfxAudio);
-
       if (btnEl) {
         btnEl.classList.add("active-sfx");
         setTimeout(() => btnEl.classList.remove("active-sfx"), 260);
       }
 
-      sfxAudio.play().then(() => {
-        if (currentPlayingIndex === -1) {
-          systemStatus.textContent = `${prefixLabel}${sfx.emoji} 再生: ${sfx.label}`;
-          systemStatus.style.color = "#fbbf24";
-        }
-      }).catch((err) => {
-        systemStatus.textContent = `❌ 再生失敗(${err.name}): ${sfx.file} が見つからないか非対応形式です`;
-        systemStatus.style.color = "#ef4444";
-      });
+      const candidateUrls = buildSfxCandidateUrls(sfx.file);
+      let attemptIdx = 0;
 
-      sfxAudio.addEventListener("ended", () => {
-        activeSfxAudios = activeSfxAudios.filter(a => a !== sfxAudio);
-        if (currentPlayingIndex === -1 && activeSfxAudios.length === 0) {
-          restoreIdleStatus();
+      const tryPlayCandidate = () => {
+        if (attemptIdx >= candidateUrls.length) {
+          systemStatus.textContent = `❌ 「${sfx.label}」再生失敗: GitHub上に「${sfx.file.replace("./", "")}」が存在するか確認してください`;
+          systemStatus.style.color = "#ef4444";
+          return;
         }
-      });
+
+        const targetUrl = candidateUrls[attemptIdx];
+        attemptIdx++;
+
+        const sfxAudio = new Audio(targetUrl);
+        sfxAudio.volume = sfxMasterVolume;
+
+        sfxAudio.play().then(() => {
+          activeSfxAudios.push(sfxAudio);
+          if (currentPlayingIndex === -1) {
+            systemStatus.textContent = `${prefixLabel}${sfx.emoji} 再生: ${sfx.label}`;
+            systemStatus.style.color = "#fbbf24";
+          }
+          sfxAudio.addEventListener("ended", () => {
+            activeSfxAudios = activeSfxAudios.filter(a => a !== sfxAudio);
+            if (currentPlayingIndex === -1 && activeSfxAudios.length === 0) {
+              restoreIdleStatus();
+            }
+          });
+        }).catch(() => {
+          // 次の拡張子候補で自動再試行
+          tryPlayCandidate();
+        });
+      };
+
+      tryPlayCandidate();
     }
 
     function stopAllSfx() {
@@ -1875,8 +2063,9 @@
         systemStatus.textContent = "📷 カメラと顔認証AIを起動しています...";
         systemStatus.style.color = "#38bdf8";
 
+        // 顔認証の精度を高めるため 640x480 解像度で取得
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 320 }, height: { ideal: 240 } },
+          video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
         webcamVideo.srcObject = mediaStream;
@@ -1943,7 +2132,7 @@
     });
 
     // ==========================================
-    // カウント音用 Web Audio API
+    // カウント音用 Web Audio API（タイミング指定対応）
     // ==========================================
     let audioCtx = null;
     function ensureAudioContext() {
@@ -2012,14 +2201,30 @@
       clearCountSoundTimers();
       if (countSoundDurationSec <= 0 || countSoundVol <= 0) return;
 
+      const mode = savedCountConfig.timingMode || "end";
       let delayMs = 0;
       let activeWindowSec = countSoundDurationSec;
 
-      if (songDurationSec > 0) {
-        if (songDurationSec > countSoundDurationSec) {
-          delayMs = (songDurationSec - countSoundDurationSec) * 1000;
-        } else {
+      if (mode === "start") {
+        delayMs = 0;
+        if (songDurationSec > 0 && songDurationSec < countSoundDurationSec) {
           activeWindowSec = songDurationSec;
+        }
+      } else if (mode === "custom_sec") {
+        const offsetSec = savedCountConfig.offsetSec || 0;
+        delayMs = offsetSec * 1000;
+        if (songDurationSec > 0) {
+          if (offsetSec >= songDurationSec) return;
+          activeWindowSec = Math.min(countSoundDurationSec, songDurationSec - offsetSec);
+        }
+      } else {
+        // "end"（曲が終わる直前から逆算）
+        if (songDurationSec > 0) {
+          if (songDurationSec > countSoundDurationSec) {
+            delayMs = (songDurationSec - countSoundDurationSec) * 1000;
+          } else {
+            activeWindowSec = songDurationSec;
+          }
         }
       }
 
@@ -2525,7 +2730,7 @@
       if (isCameraActive) {
         if (savedFaceConfig.enabled) {
           systemStatus.textContent = registeredFaces.length > 0
-            ? `👤 顔認証待機中（登録済み ${registeredFaces.length}名のみ反応）`
+            ? `👤 顔認証待機中（登録済み ${registeredFaces.length}件のみ反応）`
             : "⚠️ 顔認証ONですが顔が未登録です（「☰ ➔ 👤 顔認証設定」から登録）";
           systemStatus.style.color = registeredFaces.length > 0 ? "#38bdf8" : "#f59e0b";
         } else {
@@ -2564,15 +2769,13 @@
 
       if (!songList[idx]) return;
       const targetSong = songList[idx];
-      // 再生直前にもDropboxリンク等を正規化
       targetSong.url = normalizeAudioPath(targetSong.url);
 
       stopMusic();
       lastPlayedIndex = idx;
       currentPlayingIndex = idx;
 
-      const resolvedUrl = new URL(targetSong.url, window.location.href).href;
-      audioPlayer.src = resolvedUrl;
+      audioPlayer.src = resolveSafeAudioUrl(targetSong.url);
       audioPlayer.volume = targetSong.fadeIn > 0 ? 0 : ((targetSong.baseVolume ?? 40) / 100);
 
       audioPlayer.play().then(() => {
@@ -2588,7 +2791,10 @@
         }
 
         startVolumeEnvelope(targetSong);
-        schedulePlaybackCountSound(targetSong.duration, targetSong.title);
+        const effectiveDur = targetSong.duration > 0
+          ? targetSong.duration
+          : (Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0 ? audioPlayer.duration : 0);
+        schedulePlaybackCountSound(effectiveDur, targetSong.title);
 
         if (targetSong.duration > 0) {
           stopTimerId = setTimeout(() => {
@@ -2678,7 +2884,8 @@
 
     function updateCountDurationUI() {
       countSoundDurationSec = COUNT_DURATION_STEPS[countDurIndex];
-      countDurDisplay.textContent = countSoundDurationSec === 0 ? "OFF（0秒）" : `${countSoundDurationSec}秒間`;
+      syncCountConfigUI();
+      saveCountConfig();
     }
 
     countDurMinusBtn.addEventListener("click", () => {
@@ -2697,8 +2904,8 @@
 
     function setBpmValue(newBpm) {
       countBpm = Math.max(40, Math.min(240, newBpm));
-      bpmDisplay.textContent = `${countBpm} BPM`;
-      bpmSlider.value = String(countBpm);
+      syncCountConfigUI();
+      saveCountConfig();
     }
 
     bpmMinusBtn.addEventListener("click", () => setBpmValue(countBpm - 1));
@@ -2707,6 +2914,7 @@
 
     countSoundType.addEventListener("change", (e) => {
       countSoundMode = e.target.value;
+      saveCountConfig();
       playSingleCountBeep(false);
     });
 
@@ -2714,6 +2922,7 @@
       const val = parseInt(e.target.value, 10);
       countSoundVol = val / 100;
       countVolumeVal.textContent = `${val}%`;
+      saveCountConfig();
     });
 
     let testCountTimer = null;
@@ -2768,7 +2977,7 @@
     });
 
     // ==========================================
-    // 顔認証（非同期バックグラウンド照合・速歩き対応）
+    // 顔認証（高精度化 ＋ リアルタイムスコア表示）
     // ==========================================
     async function runFaceRecognitionStep() {
       if (isRunningFaceCheck || !faceModelsLoaded || !isCameraActive || webcamVideo.readyState < 2) return;
@@ -2776,32 +2985,44 @@
 
       isRunningFaceCheck = true;
       try {
+        // 検出入力サイズを224に上げて遠距離・歩きながらの顔を確実に取得
         const detection = await faceapi
-          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.38 }))
+          .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.30 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
 
         const now = Date.now();
         if (detection) {
-          const match = findBestMatchingFace(detection.descriptor);
-          if (match) {
-            lastMatchedFaceName = match.name;
-            lastMatchedTime = now;
-            if (trackStartX !== null) {
-              trackVerifiedNameThisPass = match.name;
+          const result = findBestMatchingFace(detection.descriptor);
+          if (result) {
+            const distText = result.distance.toFixed(2);
+            faceScoreLiveDebug.textContent = result.isMatch
+              ? `✅ 認証OK: ${result.name}（一致スコア ${distText} ≦ 基準 ${savedFaceConfig.threshold.toFixed(2)}）`
+              : `⚠️ 惜しい未一致: ${result.name}（スコア ${distText} ＞ 基準 ${savedFaceConfig.threshold.toFixed(2)}）`;
+            faceScoreLiveDebug.style.color = result.isMatch ? "#10b981" : "#f59e0b";
+
+            if (result.isMatch) {
+              lastMatchedFaceName = result.name;
+              lastMatchedTime = now;
+              if (trackStartX !== null) {
+                trackVerifiedNameThisPass = result.name;
+              }
+              mainMatchedName.textContent = `${result.name}（認証OK）`;
+              mainMatchedName.style.color = "#10b981";
+              faceLiveDetectBadge.textContent = `✅ 認証一致: ${result.name}`;
+              faceLiveDetectBadge.style.color = "#10b981";
+            } else {
+              if (now - lastMatchedTime > 2000 && !trackVerifiedNameThisPass) {
+                lastMatchedFaceName = null;
+                mainMatchedName.textContent = `未一致 (${distText})`;
+                mainMatchedName.style.color = "#f59e0b";
+              }
+              faceLiveDetectBadge.textContent = `👤 顔検出中（スコア ${distText}）`;
+              faceLiveDetectBadge.style.color = "#38bdf8";
             }
-            mainMatchedName.textContent = `${match.name}（認証OK）`;
-            mainMatchedName.style.color = "#10b981";
-            faceLiveDetectBadge.textContent = `✅ 認証一致: ${match.name}`;
-            faceLiveDetectBadge.style.color = "#10b981";
           } else {
-            if (now - lastMatchedTime > 2000 && !trackVerifiedNameThisPass) {
-              lastMatchedFaceName = null;
-              mainMatchedName.textContent = "未登録の顔";
-              mainMatchedName.style.color = "#f59e0b";
-            }
+            faceScoreLiveDebug.textContent = "👤 顔を検出中（登録リストが空のため照合待ち）";
             faceLiveDetectBadge.textContent = "👤 顔検出中（未登録）";
-            faceLiveDetectBadge.style.color = "#38bdf8";
           }
         } else {
           if (now - lastMatchedTime > 2500 && !trackVerifiedNameThisPass) {
@@ -2813,7 +3034,6 @@
           faceLiveDetectBadge.style.color = "#94a3b8";
         }
       } catch (e) {
-        // 顔検出エラーは無視して継続
       } finally {
         isRunningFaceCheck = false;
       }
@@ -2842,7 +3062,7 @@
         overlayCanvas.height = vh;
         ctx.clearRect(0, 0, vw, vh);
 
-        const persons = predictions.filter(p => p.class === "person" && p.score >= 0.50);
+        const persons = predictions.filter(p => p.class === "person" && p.score >= 0.45);
         const now = Date.now();
 
         if (persons.length > 0) {
@@ -2851,7 +3071,7 @@
             const initPerson = persons[0];
             trackStartX = (initPerson.bbox[0] + initPerson.bbox[2] / 2) / vw;
             trackTriggeredThisPass = false;
-            trackVerifiedNameThisPass = (lastMatchedFaceName && now - lastMatchedTime <= 1500)
+            trackVerifiedNameThisPass = (lastMatchedFaceName && now - lastMatchedTime <= 2000)
               ? lastMatchedFaceName
               : null;
           }
@@ -2936,7 +3156,7 @@
 
     startBtn.addEventListener("click", async () => {
       startBtn.disabled = true;
-      loadingMsg.textContent = "カメラ・人物検知AI・顔認証AIを準備しています（初回は数秒かかります）...";
+      loadingMsg.textContent = "カメラ・人物検知AI・高精度顔認証AIを準備しています...";
 
       try {
         ensureAudioContext();
@@ -2948,6 +3168,7 @@
         renderRegisteredFaces();
         updateCamDirectionTags();
         updateWalkSpeedUI();
+        syncCountConfigUI();
 
         startOverlay.style.display = "none";
         await startCameraHardware();
@@ -2965,6 +3186,7 @@
     updateCameraButtonsUI();
     updateCamDirectionTags();
     updateWalkSpeedUI();
+    syncCountConfigUI();
   </script>
 </body>
 </html>
