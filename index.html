@@ -451,6 +451,12 @@
       border: 1px solid rgba(245, 158, 11, 0.35);
     }
 
+    .meta-tag.github {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
     .play-pill {
       background: #1e293b;
       color: #38bdf8;
@@ -511,7 +517,7 @@
       font-size: 0.85rem;
     }
 
-    /* 設定画面のURL追加フォーム */
+    /* 設定画面のURL・ファイル追加フォーム */
     .url-input-col {
       display: flex;
       flex-direction: column;
@@ -626,7 +632,7 @@
   <div id="startOverlay">
     <h2 style="font-size: 1.5rem; color: #38bdf8;">🚶 人感ランダムサウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      カメラのオン・オフをいつでも自由に切り替えられ、<br>設定画面を開いている間は自動でカメラをオフにできます。
+      GitHub内の歓声・音声ファイルや外部URLをランダム再生し、<br>カメラのオン・オフやフェード・強調区間を自由に調整できます。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -708,7 +714,7 @@
           <span id="mainSongCountBadge" style="font-size: 0.8rem; color: #94a3b8;">0曲</span>
         </div>
         <div style="font-size: 0.78rem; color: #94a3b8;">
-          ※ カメラ動作ルールや曲の編集は左上の「☰ ➔ 設定」から変更できます。
+          ※ GitHubのメインフォルダにある歓声や音楽の追加・音量調整は左上の「☰ ➔ 設定」から行えます。
         </div>
         <div class="song-card-list" id="mainSongListContainer"></div>
       </div>
@@ -823,13 +829,16 @@
         </div>
       </div>
 
-      <!-- 外部リンクURLの追加＆1曲ごとの個別設定 -->
+      <!-- 外部リンクURL・GitHubファイル追加＆1曲ごとの個別設定 -->
       <div class="card">
-        <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 曲の追加・フェード＆強調区間設定</div>
+        <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 歓声・曲の追加＆個別設定</div>
+        <div style="font-size: 0.76rem; color: #94a3b8; line-height: 1.45;">
+          ※ GitHubのメイン（ルート）に置いたファイルは <b>歓声.mp3</b> のようにファイル名だけ入力すれば自動で `./歓声.mp3` として追加できます。外部URLもそのまま貼れます。
+        </div>
 
         <div class="url-input-col">
-          <input type="text" id="newTitleInput" class="text-input" placeholder="曲名（省略可・例：メインBGM）" />
-          <input type="text" id="newUrlInput" class="text-input" placeholder="音源URL（https://firebasestorage.googleapis.com/... など）" />
+          <input type="text" id="newTitleInput" class="text-input" placeholder="表示名（省略可・例：歓声1）" />
+          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名（例: 歓声.mp3）または外部URL（https://...）" />
           <button id="addUrlBtn" type="button">＋ 曲リストに追加する</button>
         </div>
 
@@ -840,9 +849,21 @@
 
   <script>
     // =========================================================
-    // ★ 初期曲リスト（1曲ごとのフェード・強調区間設定付き）
+    // ★ 初期曲リスト（GitHubメイン直下の「./歓声.mp3」＋外部サンプル）
+    // GitHubのファイル名が異なる場合は画面から追加・削除するかここを書き換えてください
     // =========================================================
     const DEFAULT_SONGS = [
+      {
+        title: "歓声（GitHubメイン直下）",
+        url: "./歓声.mp3",
+        baseVolume: 85,
+        peakVolume: 100,
+        highlightStart: 0,
+        highlightEnd: 0,
+        fadeIn: 0.5,
+        fadeOut: 1.5,
+        duration: 0
+      },
       {
         title: "サンプル音 1（フェード＋サビ強調例）",
         url: "https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg",
@@ -853,17 +874,6 @@
         fadeIn: 2,
         fadeOut: 3,
         duration: 15
-      },
-      {
-        title: "サンプル音 2（効果音）",
-        url: "https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg",
-        baseVolume: 80,
-        peakVolume: 100,
-        highlightStart: 0,
-        highlightEnd: 0,
-        fadeIn: 0,
-        fadeOut: 1,
-        duration: 5
       }
     ];
 
@@ -942,9 +952,9 @@
     // 状態変数
     let model = null;
     let mediaStream = null;
-    let isCameraActive = false;       // ハードウェアのカメラ電源がONか
-    let userManualCamOff = false;     // ユーザーが手動でカメラOFFにしているか
-    let isCamHidden = false;          // 小窓ワイプを隠しているか
+    let isCameraActive = false;
+    let userManualCamOff = false;
+    let isCamHidden = false;
     let activeScreenId = "mainScreen";
 
     let currentCount = 0;
@@ -954,7 +964,6 @@
     let lastTriggerTime = 0;
     let cooldownSec = 5;
 
-    // 曲再生中のカウント音設定（BPM対応）
     let countDurIndex = 5; // 5秒間
     let countSoundDurationSec = COUNT_DURATION_STEPS[countDurIndex];
     let countBpm = 120;
@@ -968,8 +977,8 @@
     let lastPlayedIndex = -1;
     let currentPlayingIndex = -1;
 
-    // 曲リスト復元
-    let rawSaved = JSON.parse(localStorage.getItem("person_sound_songs_v4") || "null");
+    // 曲リスト復元（旧バージョンデータも引き継ぎつつ、./歓声.mp3 が無ければ先頭に自動補完）
+    let rawSaved = JSON.parse(localStorage.getItem("person_sound_songs_v5") || localStorage.getItem("person_sound_songs_v4") || "null");
     let songList = Array.isArray(rawSaved)
       ? rawSaved.map(s => ({
           title: s.title || "無題の曲",
@@ -984,10 +993,36 @@
         }))
       : [...DEFAULT_SONGS];
 
+    // v4からの初回移行時に ./歓声.mp3 が未登録なら先頭に追加
+    if (!localStorage.getItem("person_sound_songs_v5") && Array.isArray(rawSaved)) {
+      const hasKansei = songList.some(s => s.url.includes("歓声.mp3"));
+      if (!hasKansei) {
+        songList.unshift({ ...DEFAULT_SONGS[0] });
+      }
+    }
+
     // メイン曲用プレイヤー
     const audioPlayer = new Audio();
     audioPlayer.crossOrigin = "anonymous";
     audioPlayer.preload = "auto";
+
+    // ==========================================
+    // 入力されたパス/URLの正規化（GitHub直下ファイル名にも対応）
+    // ==========================================
+    function normalizeAudioPath(rawInput) {
+      const trimmed = rawInput.trim();
+      if (!trimmed) return "";
+      // すでに http://, https://, ./, ../, / で始まっていればそのまま使う
+      if (/^(https?:\/\/|\.\/|\.\.\/|\/)/i.test(trimmed)) {
+        return trimmed;
+      }
+      // ファイル名だけ（例: "歓声.mp3"）入力された場合は GitHub Pages ルート直下の相対パス "./" を補完
+      return `./${trimmed}`;
+    }
+
+    function isGitHubRelativePath(url) {
+      return !/^https?:\/\//i.test(url);
+    }
 
     // ==========================================
     // カメラハードウェアの完全起動 / 完全停止制御
@@ -1060,7 +1095,6 @@
       }
     }
 
-    // 手動カメラON/OFFボタン（メイン画面＆設定画面共通）
     async function toggleManualCamera() {
       if (isCameraActive) {
         userManualCamOff = true;
@@ -1074,7 +1108,6 @@
     toggleCamPowerBtn.addEventListener("click", toggleManualCamera);
     settingsCamToggleBtn.addEventListener("click", toggleManualCamera);
 
-    // 設定画面の「設定中は自動でカメラOFF」スイッチ変更時
     autoOffInSettingsToggle.addEventListener("change", async () => {
       if (activeScreenId === "settingsScreen") {
         if (autoOffInSettingsToggle.checked) {
@@ -1181,7 +1214,7 @@
             systemStatus.style.color = "#f59e0b";
           }
 
-          if (elapsedFinished(beatCount, totalBeats)) {
+          if (beatCount >= totalBeats) {
             clearCountSoundTimers();
           }
         };
@@ -1191,10 +1224,6 @@
           countIntervalId = setInterval(tick, beatIntervalMs);
         }
       }, delayMs);
-    }
-
-    function elapsedFinished(current, total) {
-      return current >= total;
     }
 
     // ==========================================
@@ -1275,7 +1304,7 @@
     }
 
     // ==========================================
-    // ハンバーガーメニュー開閉＆画面切り替え（カメラ自動制御連動）
+    // ハンバーガーメニュー開閉＆画面切り替え
     // ==========================================
     function openDrawer() {
       navDrawer.classList.add("open");
@@ -1305,7 +1334,6 @@
         pageTitle.textContent = targetId === "mainScreen" ? "🎵 メイン画面" : "⚙️ 設定画面";
         closeDrawer();
 
-        // 画面遷移に応じたカメラ自動ON/OFF制御
         if (targetId === "settingsScreen") {
           if (autoOffInSettingsToggle.checked && isCameraActive) {
             stopCameraHardware("⚙️ 設定中のためカメラを自動停止しています");
@@ -1346,7 +1374,7 @@
     }
 
     function saveSongs() {
-      localStorage.setItem("person_sound_songs_v4", JSON.stringify(songList));
+      localStorage.setItem("person_sound_songs_v5", JSON.stringify(songList));
     }
 
     function escapeHtml(str) {
@@ -1368,12 +1396,13 @@
       settingSongListContainer.innerHTML = "";
 
       if (songList.length === 0) {
-        mainSongListContainer.innerHTML = `<div style="color:#64748b; font-size:0.85rem; text-align:center; padding:12px;">曲が登録されていません。左上の「☰ ➔ 設定」からURLを追加してください。</div>`;
+        mainSongListContainer.innerHTML = `<div style="color:#64748b; font-size:0.85rem; text-align:center; padding:12px;">曲が登録されていません。左上の「☰ ➔ 設定」から追加してください。</div>`;
         return;
       }
 
       songList.forEach((item, idx) => {
         const hasHighlight = item.highlightEnd > item.highlightStart;
+        const isGithubLocal = isGitHubRelativePath(item.url);
 
         const mainItem = document.createElement("div");
         mainItem.className = "main-song-item" + (idx === playingIdx ? " playing" : "");
@@ -1381,6 +1410,7 @@
           <div style="overflow: hidden; flex: 1;">
             <div class="main-song-title">${idx + 1}. ${escapeHtml(item.title)}</div>
             <div class="main-song-meta">
+              ${isGithubLocal ? `<span class="meta-tag github">📁 GitHub直下</span>` : ""}
               <span class="meta-tag">⏱️ ${formatDurationLabel(item.duration)}</span>
               <span class="meta-tag">🔉 通常${item.baseVolume}%</span>
               ${hasHighlight ? `<span class="meta-tag accent">🔥 ${item.highlightStart}〜${item.highlightEnd}秒は${item.peakVolume}%</span>` : ""}
@@ -1638,24 +1668,24 @@
     }
 
     addUrlBtn.addEventListener("click", () => {
-      const url = newUrlInput.value.trim();
-      if (!url) return;
+      const normalizedUrl = normalizeAudioPath(newUrlInput.value);
+      if (!normalizedUrl) return;
       let title = newTitleInput.value.trim();
       if (!title) {
-        const cleanPath = url.split("?")[0];
+        const cleanPath = normalizedUrl.split("?")[0];
         const fileName = decodeURIComponent(cleanPath.substring(cleanPath.lastIndexOf("/") + 1));
         title = fileName || `登録曲 ${songList.length + 1}`;
       }
       songList.push({
         title,
-        url,
-        baseVolume: 40,
+        url: normalizedUrl,
+        baseVolume: 80,
         peakVolume: 100,
         highlightStart: 0,
         highlightEnd: 0,
-        fadeIn: 1,
-        fadeOut: 2,
-        duration: 15
+        fadeIn: 0.5,
+        fadeOut: 1.5,
+        duration: 0
       });
       newTitleInput.value = "";
       newUrlInput.value = "";
@@ -1734,7 +1764,7 @@
         currentPlayingIndex = -1;
         clearCountSoundTimers();
         stopVolumeEnvelope();
-        systemStatus.textContent = `❌ 再生エラー: 「${targetSong.title}」のURLを確認してください`;
+        systemStatus.textContent = `❌ 再生エラー: 「${targetSong.url}」が見つかりません（ファイル名を確認してください）`;
         systemStatus.style.color = "#ef4444";
       });
     }
@@ -1902,7 +1932,7 @@
     });
 
     // ==========================================
-    // 人物検知AIループ（isCameraActive が true の間だけ稼働）
+    // 人物検知AIループ
     // ==========================================
     async function detectLoop() {
       if (!isCameraActive || !model) return;
