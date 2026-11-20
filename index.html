@@ -348,6 +348,52 @@
     .btn-stop { background: #ef4444; color: #fff; }
     .btn-reset { background: #0f172a; color: #cbd5e1; border: 1px solid #475569; }
 
+    /* ワンタップ効果音パッド（4ボタン） */
+    .sfx-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .sfx-pad-btn {
+      background: #0f172a;
+      border: 1.5px solid #334155;
+      border-radius: 14px;
+      padding: 14px 10px;
+      color: #f8fafc;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sfx-pad-btn:active, .sfx-pad-btn.active-sfx {
+      transform: scale(0.96);
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    .sfx-emoji {
+      font-size: 1.55rem;
+      line-height: 1.1;
+    }
+
+    .sfx-name {
+      font-size: 0.95rem;
+      color: #f8fafc;
+    }
+
+    .sfx-file {
+      font-size: 0.68rem;
+      color: #64748b;
+    }
+
     /* トグルスイッチ（設定画面用） */
     .toggle-switch {
       position: relative;
@@ -632,7 +678,7 @@
   <div id="startOverlay">
     <h2 style="font-size: 1.5rem; color: #38bdf8;">🚶 人感ランダムサウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      GitHub内の歓声・音声ファイルや外部URLをランダム再生し、<br>カメラのオン・オフやフェード・強調区間を自由に調整できます。
+      人感ランダム再生に加えて、歓声・拍手・ラッパ・キラッの<br>ワンタップ効果音パッドを搭載しました。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -643,7 +689,7 @@
   <nav id="navDrawer">
     <div class="drawer-title">画面切り替えメニュー</div>
     <button class="nav-item-btn active" data-target="mainScreen" type="button">
-      <span>🎵</span><span>メイン（曲リスト・状況）</span>
+      <span>🎵</span><span>メイン（効果音・曲一覧）</span>
     </button>
     <button class="nav-item-btn" data-target="settingsScreen" type="button">
       <span>⚙️</span><span>設定（カメラ動作・曲編集）</span>
@@ -669,7 +715,7 @@
     </header>
 
     <!-- ==========================================
-         画面1：メイン画面（ステータス＆設定中の曲一覧）
+         画面1：メイン画面（ステータス・効果音パッド・曲一覧）
          ========================================== -->
     <div id="mainScreen" class="screen-view active">
       <div class="card">
@@ -703,8 +749,17 @@
         </div>
         <div class="btn-row">
           <button class="btn btn-test" id="testPlayBtn" type="button">🎲 ランダム再生</button>
-          <button class="btn btn-stop" id="stopMusicBtn" type="button">⏹ 停止</button>
+          <button class="btn btn-stop" id="stopMusicBtn" type="button">⏹ 全停止</button>
         </div>
+      </div>
+
+      <!-- ワンタップ効果音パッド（GitHub直下の4音源） -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ 効果音ワンタップ再生</span>
+          <span style="font-size: 0.75rem; color: #94a3b8;">BGMと重ねて再生OK</span>
+        </div>
+        <div class="sfx-grid" id="sfxPadGrid"></div>
       </div>
 
       <!-- 設定されている曲の一覧 -->
@@ -714,14 +769,14 @@
           <span id="mainSongCountBadge" style="font-size: 0.8rem; color: #94a3b8;">0曲</span>
         </div>
         <div style="font-size: 0.78rem; color: #94a3b8;">
-          ※ GitHubのメインフォルダにある歓声や音楽の追加・音量調整は左上の「☰ ➔ 設定」から行えます。
+          ※ カメラ動作や曲の追加・フェード設定は左上の「☰ ➔ 設定」から行えます。
         </div>
         <div class="song-card-list" id="mainSongListContainer"></div>
       </div>
     </div>
 
     <!-- ==========================================
-         画面2：設定画面（カメラ制御・カウント音BPM・1曲ごとの編集）
+         画面2：設定画面（カメラ制御・効果音音量・カウント音BPM・1曲ごとの編集）
          ========================================== -->
     <div id="settingsScreen" class="screen-view">
       <!-- カメラ動作設定 -->
@@ -784,6 +839,16 @@
         </div>
       </div>
 
+      <!-- ワンタップ効果音パッド音量＆曲再生中のカウント音設定 -->
+      <div class="card">
+        <div style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ ワンタップ効果音パッド設定</div>
+        <div class="ctrl-row">
+          <span style="white-space: nowrap;">🔊 効果音ボタンの音量:</span>
+          <input type="range" id="sfxVolumeSlider" min="0" max="100" value="90" />
+          <span id="sfxVolumeVal" style="width: 42px; text-align: right;">90%</span>
+        </div>
+      </div>
+
       <!-- 曲再生中に流れるカウント音の設定（BPM対応） -->
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -831,15 +896,15 @@
 
       <!-- 外部リンクURL・GitHubファイル追加＆1曲ごとの個別設定 -->
       <div class="card">
-        <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 歓声・曲の追加＆個別設定</div>
+        <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 ランダム再生リストの追加・個別設定</div>
         <div style="font-size: 0.76rem; color: #94a3b8; line-height: 1.45;">
-          ※ GitHubのメイン（ルート）に置いたファイルは <b>歓声.mp3</b> のようにファイル名だけ入力すれば自動で `./歓声.mp3` として追加できます。外部URLもそのまま貼れます。
+          ※ GitHubメイン直下のファイル名（例：<b>歓声と拍手1.mp3</b>）または外部URL（https://...）を入力してランダム対象に追加できます。
         </div>
 
         <div class="url-input-col">
-          <input type="text" id="newTitleInput" class="text-input" placeholder="表示名（省略可・例：歓声1）" />
-          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名（例: 歓声.mp3）または外部URL（https://...）" />
-          <button id="addUrlBtn" type="button">＋ 曲リストに追加する</button>
+          <input type="text" id="newTitleInput" class="text-input" placeholder="表示名（省略可）" />
+          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名（例: 歓声と拍手1.mp3）または外部URL" />
+          <button id="addUrlBtn" type="button">＋ ランダム曲リストに追加する</button>
         </div>
 
         <div class="song-card-list" id="settingSongListContainer" style="margin-top: 6px;"></div>
@@ -849,21 +914,19 @@
 
   <script>
     // =========================================================
-    // ★ 初期曲リスト（GitHubメイン直下の「./歓声.mp3」＋外部サンプル）
-    // GitHubのファイル名が異なる場合は画面から追加・削除するかここを書き換えてください
+    // ★ ワンタップ効果音ボタン定義（GitHubメイン直下のファイル）
+    // =========================================================
+    const SFX_BUTTONS = [
+      { emoji: "🎉", label: "歓声", file: "./歓声と拍手1.mp3" },
+      { emoji: "👏", label: "拍手", file: "./大勢で拍手.mp3" },
+      { emoji: "📯", label: "ラッパ", file: "./パフ.mp3" },
+      { emoji: "✨", label: "キラッ", file: "./キラッ1.mp3" }
+    ];
+
+    // =========================================================
+    // ★ 初期ランダム曲リスト
     // =========================================================
     const DEFAULT_SONGS = [
-      {
-        title: "歓声（GitHubメイン直下）",
-        url: "./歓声.mp3",
-        baseVolume: 85,
-        peakVolume: 100,
-        highlightStart: 0,
-        highlightEnd: 0,
-        fadeIn: 0.5,
-        fadeOut: 1.5,
-        duration: 0
-      },
       {
         title: "サンプル音 1（フェード＋サビ強調例）",
         url: "https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg",
@@ -874,6 +937,17 @@
         fadeIn: 2,
         fadeOut: 3,
         duration: 15
+      },
+      {
+        title: "サンプル音 2（効果音）",
+        url: "https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg",
+        baseVolume: 80,
+        peakVolume: 100,
+        highlightStart: 0,
+        highlightEnd: 0,
+        fadeIn: 0,
+        fadeOut: 1,
+        duration: 5
       }
     ];
 
@@ -911,6 +985,7 @@
     const systemStatus = document.getElementById("systemStatus");
     const liveVolBar = document.getElementById("liveVolBar");
     const liveVolText = document.getElementById("liveVolText");
+    const sfxPadGrid = document.getElementById("sfxPadGrid");
 
     const targetMinusBtn = document.getElementById("targetMinusBtn");
     const targetPlusBtn = document.getElementById("targetPlusBtn");
@@ -924,7 +999,10 @@
     const coolPlusBtn = document.getElementById("coolPlusBtn");
     const cooldownDisplay = document.getElementById("cooldownDisplay");
 
-    // 再生中のカウント音設定DOM
+    // 効果音＆カウント音設定DOM
+    const sfxVolumeSlider = document.getElementById("sfxVolumeSlider");
+    const sfxVolumeVal = document.getElementById("sfxVolumeVal");
+
     const countDurMinusBtn = document.getElementById("countDurMinusBtn");
     const countDurPlusBtn = document.getElementById("countDurPlusBtn");
     const countDurDisplay = document.getElementById("countDurDisplay");
@@ -964,6 +1042,9 @@
     let lastTriggerTime = 0;
     let cooldownSec = 5;
 
+    let sfxMasterVolume = 0.9;
+    let activeSfxAudios = [];
+
     let countDurIndex = 5; // 5秒間
     let countSoundDurationSec = COUNT_DURATION_STEPS[countDurIndex];
     let countBpm = 120;
@@ -977,8 +1058,8 @@
     let lastPlayedIndex = -1;
     let currentPlayingIndex = -1;
 
-    // 曲リスト復元（旧バージョンデータも引き継ぎつつ、./歓声.mp3 が無ければ先頭に自動補完）
-    let rawSaved = JSON.parse(localStorage.getItem("person_sound_songs_v5") || localStorage.getItem("person_sound_songs_v4") || "null");
+    // 曲リスト復元
+    let rawSaved = JSON.parse(localStorage.getItem("person_sound_songs_v6") || "null");
     let songList = Array.isArray(rawSaved)
       ? rawSaved.map(s => ({
           title: s.title || "無題の曲",
@@ -993,30 +1074,87 @@
         }))
       : [...DEFAULT_SONGS];
 
-    // v4からの初回移行時に ./歓声.mp3 が未登録なら先頭に追加
-    if (!localStorage.getItem("person_sound_songs_v5") && Array.isArray(rawSaved)) {
-      const hasKansei = songList.some(s => s.url.includes("歓声.mp3"));
-      if (!hasKansei) {
-        songList.unshift({ ...DEFAULT_SONGS[0] });
-      }
-    }
-
     // メイン曲用プレイヤー
     const audioPlayer = new Audio();
     audioPlayer.crossOrigin = "anonymous";
     audioPlayer.preload = "auto";
 
     // ==========================================
-    // 入力されたパス/URLの正規化（GitHub直下ファイル名にも対応）
+    // ワンタップ効果音パッド描画＆再生
+    // ==========================================
+    function renderSfxPads() {
+      sfxPadGrid.innerHTML = "";
+      SFX_BUTTONS.forEach((sfx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "sfx-pad-btn";
+        const fileName = sfx.file.replace("./", "");
+        btn.innerHTML = `
+          <span class="sfx-emoji">${sfx.emoji}</span>
+          <span class="sfx-name">${sfx.label}</span>
+          <span class="sfx-file">${fileName}</span>
+        `;
+
+        btn.addEventListener("click", () => {
+          triggerSfxSound(sfx, btn);
+        });
+
+        sfxPadGrid.appendChild(btn);
+      });
+    }
+
+    function triggerSfxSound(sfx, btnEl) {
+      const sfxAudio = new Audio(encodeURI(sfx.file));
+      sfxAudio.volume = sfxMasterVolume;
+      activeSfxAudios.push(sfxAudio);
+
+      if (btnEl) {
+        btnEl.classList.add("active-sfx");
+        setTimeout(() => btnEl.classList.remove("active-sfx"), 260);
+      }
+
+      sfxAudio.play().then(() => {
+        if (currentPlayingIndex === -1) {
+          systemStatus.textContent = `${sfx.emoji} 効果音再生: ${sfx.label}`;
+          systemStatus.style.color = "#fbbf24";
+        }
+      }).catch(() => {
+        systemStatus.textContent = `❌ 効果音エラー: 「${sfx.file}」が見つかりません`;
+        systemStatus.style.color = "#ef4444";
+      });
+
+      sfxAudio.addEventListener("ended", () => {
+        activeSfxAudios = activeSfxAudios.filter(a => a !== sfxAudio);
+        if (currentPlayingIndex === -1 && activeSfxAudios.length === 0) {
+          restoreIdleStatus();
+        }
+      });
+    }
+
+    function stopAllSfx() {
+      activeSfxAudios.forEach(a => {
+        a.pause();
+        a.currentTime = 0;
+      });
+      activeSfxAudios = [];
+    }
+
+    sfxVolumeSlider.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value, 10);
+      sfxMasterVolume = val / 100;
+      sfxVolumeVal.textContent = `${val}%`;
+      activeSfxAudios.forEach(a => { a.volume = sfxMasterVolume; });
+    });
+
+    // ==========================================
+    // パス正規化（GitHub直下ファイル名にも対応）
     // ==========================================
     function normalizeAudioPath(rawInput) {
       const trimmed = rawInput.trim();
       if (!trimmed) return "";
-      // すでに http://, https://, ./, ../, / で始まっていればそのまま使う
       if (/^(https?:\/\/|\.\/|\.\.\/|\/)/i.test(trimmed)) {
         return trimmed;
       }
-      // ファイル名だけ（例: "歓声.mp3"）入力された場合は GitHub Pages ルート直下の相対パス "./" を補完
       return `./${trimmed}`;
     }
 
@@ -1374,7 +1512,7 @@
     }
 
     function saveSongs() {
-      localStorage.setItem("person_sound_songs_v5", JSON.stringify(songList));
+      localStorage.setItem("person_sound_songs_v6", JSON.stringify(songList));
     }
 
     function escapeHtml(str) {
@@ -1913,6 +2051,7 @@
     testPlayBtn.addEventListener("click", () => playRandomSong(true));
     stopMusicBtn.addEventListener("click", () => {
       stopMusic();
+      stopAllSfx();
       restoreIdleStatus();
     });
     resetCountBtn.addEventListener("click", () => {
@@ -1993,6 +2132,7 @@
         audioPlayer.play().then(() => audioPlayer.pause()).catch(() => {});
 
         loadDailyStats();
+        renderSfxPads();
         renderAllSongLists();
 
         startOverlay.style.display = "none";
@@ -2005,6 +2145,7 @@
 
     // 初期描画
     loadDailyStats();
+    renderSfxPads();
     renderAllSongLists();
     updateCameraButtonsUI();
   </script>
