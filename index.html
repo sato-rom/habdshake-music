@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>人感ランダムサウンドシステム</title>
+  <title>人感ランダムサウンドシステム（入退出対応）</title>
 
   <!-- TensorFlow.js & COCO-SSD（人物検知AI） -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -59,13 +59,13 @@
       cursor: wait;
     }
 
-    /* 右上の超小型カメラワイプ（非表示・停止切替対応） */
+    /* 右上の超小型カメラワイプ（L/Rラベル付き） */
     #cameraPipWrapper {
       position: fixed;
       top: 12px;
       right: 12px;
-      width: 104px;
-      height: 78px;
+      width: 112px;
+      height: 84px;
       border-radius: 12px;
       overflow: hidden;
       border: 2px solid #334155;
@@ -96,6 +96,21 @@
       height: 100%;
       object-fit: cover;
     }
+
+    .cam-side-tag {
+      position: absolute;
+      bottom: 3px;
+      z-index: 3;
+      font-size: 0.62rem;
+      font-weight: bold;
+      background: rgba(15, 23, 42, 0.78);
+      color: #38bdf8;
+      padding: 1px 5px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .cam-side-left { left: 4px; }
+    .cam-side-right { right: 4px; }
 
     #camOffBadge {
       position: relative;
@@ -214,7 +229,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      padding-right: 112px;
+      padding-right: 120px;
       min-height: 46px;
     }
 
@@ -289,13 +304,14 @@
     }
 
     #systemStatus {
-      font-size: 0.84rem;
+      font-size: 0.82rem;
       text-align: center;
       padding: 9px 10px;
       border-radius: 10px;
       background: #0f172a;
       color: #38bdf8;
       border: 1px solid #334155;
+      word-break: break-all;
     }
 
     /* リアルタイム音量メーターバー */
@@ -332,11 +348,11 @@
 
     .btn {
       flex: 1;
-      min-width: 110px;
+      min-width: 100px;
       padding: 11px 8px;
       border-radius: 12px;
       border: none;
-      font-size: 0.83rem;
+      font-size: 0.82rem;
       font-weight: bold;
       cursor: pointer;
     }
@@ -344,7 +360,8 @@
     .btn-cam-power { background: #0284c7; color: #fff; }
     .btn-cam-power.off-state { background: #334155; color: #cbd5e1; border: 1px solid #475569; }
     .btn-cam { background: #334155; color: #f8fafc; border: 1px solid #475569; }
-    .btn-test { background: #10b981; color: #0f172a; }
+    .btn-enter { background: #10b981; color: #0f172a; }
+    .btn-exit { background: #f59e0b; color: #0f172a; }
     .btn-stop { background: #ef4444; color: #fff; }
     .btn-reset { background: #0f172a; color: #cbd5e1; border: 1px solid #475569; }
 
@@ -394,7 +411,7 @@
       color: #64748b;
     }
 
-    /* トグルスイッチ（設定画面用） */
+    /* トグルスイッチ */
     .toggle-switch {
       position: relative;
       display: inline-block;
@@ -455,11 +472,6 @@
       padding: 12px 14px;
       border-radius: 12px;
       cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
-    }
-
-    .main-song-item:active {
-      transform: scale(0.99);
     }
 
     .main-song-item.playing {
@@ -520,7 +532,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
     }
 
     .num-control {
@@ -542,10 +554,10 @@
     }
 
     .val-badge {
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       font-weight: bold;
       color: #f59e0b;
-      min-width: 76px;
+      min-width: 74px;
       text-align: center;
     }
 
@@ -559,8 +571,9 @@
       color: #f8fafc;
       border: 1px solid #475569;
       border-radius: 10px;
-      padding: 7px 10px;
-      font-size: 0.85rem;
+      padding: 7px 9px;
+      font-size: 0.82rem;
+      max-width: 195px;
     }
 
     /* 設定画面のURL・ファイル追加フォーム */
@@ -676,9 +689,9 @@
 
   <!-- 起動オーバーレイ -->
   <div id="startOverlay">
-    <h2 style="font-size: 1.5rem; color: #38bdf8;">🚶 人感ランダムサウンド</h2>
+    <h2 style="font-size: 1.5rem; color: #38bdf8;">🚶 入退出・人感サウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      人感ランダム再生に加えて、歓声・拍手・ラッパ・キラッの<br>ワンタップ効果音パッドを搭載しました。
+      カメラ映像の左右移動から「入室」「退出」を判定し、<br>方向ごとに異なる曲や効果音を鳴らし分けます。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -692,14 +705,16 @@
       <span>🎵</span><span>メイン（効果音・曲一覧）</span>
     </button>
     <button class="nav-item-btn" data-target="settingsScreen" type="button">
-      <span>⚙️</span><span>設定（カメラ動作・曲編集）</span>
+      <span>⚙️</span><span>設定（入退出方向・曲編集）</span>
     </button>
   </nav>
 
-  <!-- 右上の超小型カメラワイプ -->
+  <!-- 右上の超小型カメラワイプ（L/R方向ガイド表示付き） -->
   <div id="cameraPipWrapper">
     <video id="webcamVideo" autoplay muted playsinline></video>
     <canvas id="overlayCanvas"></canvas>
+    <span class="cam-side-tag cam-side-left" id="camLeftTag">入</span>
+    <span class="cam-side-tag cam-side-right" id="camRightTag">出</span>
     <div id="camOffBadge">📷 カメラOFF</div>
   </div>
 
@@ -721,7 +736,7 @@
       <div class="card">
         <div class="status-grid">
           <div class="stat-box" id="countStatBox">
-            <div class="stat-label">検知カウント / 目標</div>
+            <div class="stat-label">入室カウント / 目標</div>
             <div class="stat-value">
               <span id="currentCount">0</span><span class="stat-sub"> / <span id="targetCountHud">3</span>人</span>
             </div>
@@ -748,7 +763,8 @@
           <button class="btn btn-cam" id="toggleCamViewBtn" type="button">🙈 ワイプ隠す</button>
         </div>
         <div class="btn-row">
-          <button class="btn btn-test" id="testPlayBtn" type="button">🎲 ランダム再生</button>
+          <button class="btn btn-enter" id="testEnterBtn" type="button">➡ 入室音テスト</button>
+          <button class="btn btn-exit" id="testExitBtn" type="button">⬅ 退出音テスト</button>
           <button class="btn btn-stop" id="stopMusicBtn" type="button">⏹ 全停止</button>
         </div>
       </div>
@@ -769,16 +785,66 @@
           <span id="mainSongCountBadge" style="font-size: 0.8rem; color: #94a3b8;">0曲</span>
         </div>
         <div style="font-size: 0.78rem; color: #94a3b8;">
-          ※ カメラ動作や曲の追加・フェード設定は左上の「☰ ➔ 設定」から行えます。
+          ※ 入室・退出の左右方向切り替えや、鳴らす音の割り当ては左上の「☰ ➔ 設定」から変更できます。
         </div>
         <div class="song-card-list" id="mainSongListContainer"></div>
       </div>
     </div>
 
     <!-- ==========================================
-         画面2：設定画面（カメラ制御・効果音音量・カウント音BPM・1曲ごとの編集）
+         画面2：設定画面（入退出ルール・カメラ制御・効果音・曲編集）
          ========================================== -->
     <div id="settingsScreen" class="screen-view">
+      <!-- 入退出の方向＆音割り当て設定 -->
+      <div class="card">
+        <div style="font-size: 0.95rem; font-weight: bold; color: #10b981;">🚪 入退出の方向判定・音分け設定</div>
+        <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
+          ※ 基準は<b>「右上のカメラ小窓に映っている画面の左右」</b>です。カメラ小窓の左下・右下に「入」「出」の目印が表示されます。
+        </div>
+
+        <div class="ctrl-row">
+          <span>🧭 入室と判定する向き:</span>
+          <select id="enterDirectionSelect" class="select-input">
+            <option value="left_to_right">画面の 左 ➔ 右 を「入室」</option>
+            <option value="right_to_left">画面の 右 ➔ 左 を「入室」</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <span>➡ 入室時の音:</span>
+          <select id="enterSoundSelect" class="select-input">
+            <option value="random">🎵 ランダム曲リストを再生</option>
+            <option value="sfx_0">🎉 歓声（歓声と拍手1.mp3）</option>
+            <option value="sfx_1">👏 拍手（大勢で拍手.mp3）</option>
+            <option value="sfx_2">📯 ラッパ（パフ.mp3）</option>
+            <option value="sfx_3">✨ キラッ（キラッ1.mp3）</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <span>⬅ 退出時の音:</span>
+          <select id="exitSoundSelect" class="select-input">
+            <option value="sfx_3">✨ キラッ（キラッ1.mp3）</option>
+            <option value="sfx_1">👏 拍手（大勢で拍手.mp3）</option>
+            <option value="sfx_2">📯 ラッパ（パフ.mp3）</option>
+            <option value="sfx_0">🎉 歓声（歓声と拍手1.mp3）</option>
+            <option value="random">🎵 ランダム曲リストを再生</option>
+            <option value="none">🔇 鳴らさない（無音）</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <div style="flex: 1;">
+            <div style="font-weight: bold;">退出時は人数カウントに関係なく即鳴らす</div>
+            <div style="font-size: 0.73rem; color: #94a3b8;">OFFにすると入室と同じ人数カウントで鳴ります</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="exitImmediateToggle" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- カメラ動作設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">📷 カメラ起動ルール設定</div>
@@ -807,7 +873,7 @@
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🚶 検知カウント・1日上限設定</div>
 
         <div class="ctrl-row">
-          <span>🎯 鳴らすまでの人数:</span>
+          <span>🎯 入室音を鳴らすまでの人数:</span>
           <div class="num-control">
             <button class="step-btn" id="targetMinusBtn" type="button">−</button>
             <span class="val-badge" id="targetCountDisplay">3人</span>
@@ -828,7 +894,7 @@
           <span>⏳ 再検知の待ち時間:</span>
           <div class="num-control">
             <button class="step-btn" id="coolMinusBtn" type="button">−</button>
-            <span class="val-badge" id="cooldownDisplay">5秒</span>
+            <span class="val-badge" id="cooldownDisplay">3秒</span>
             <button class="step-btn" id="coolPlusBtn" type="button">＋</button>
           </div>
         </div>
@@ -839,11 +905,11 @@
         </div>
       </div>
 
-      <!-- ワンタップ効果音パッド音量＆曲再生中のカウント音設定 -->
+      <!-- ワンタップ効果音パッド音量 -->
       <div class="card">
-        <div style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ ワンタップ効果音パッド設定</div>
+        <div style="font-size: 0.95rem; font-weight: bold; color: #fbbf24;">⚡ 効果音ボタンの音量設定</div>
         <div class="ctrl-row">
-          <span style="white-space: nowrap;">🔊 効果音ボタンの音量:</span>
+          <span style="white-space: nowrap;">🔊 効果音の大きさ:</span>
           <input type="range" id="sfxVolumeSlider" min="0" max="100" value="90" />
           <span id="sfxVolumeVal" style="width: 42px; text-align: right;">90%</span>
         </div>
@@ -915,6 +981,7 @@
   <script>
     // =========================================================
     // ★ ワンタップ効果音ボタン定義（GitHubメイン直下のファイル）
+    // ※ もし拍手・ラッパのファイル名が異なる場合はここを書き換えてください
     // =========================================================
     const SFX_BUTTONS = [
       { emoji: "🎉", label: "歓声", file: "./歓声と拍手1.mp3" },
@@ -923,9 +990,6 @@
       { emoji: "✨", label: "キラッ", file: "./キラッ1.mp3" }
     ];
 
-    // =========================================================
-    // ★ 初期ランダム曲リスト
-    // =========================================================
     const DEFAULT_SONGS = [
       {
         title: "サンプル音 1（フェード＋サビ強調例）",
@@ -955,7 +1019,7 @@
     const FADE_STEPS = [0, 0.5, 1, 1.5, 2, 3, 4, 5, 7, 10];
     const COUNT_DURATION_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30];
 
-    // メニュー＆画面切替DOM
+    // DOM参照
     const menuToggleBtn = document.getElementById("menuToggleBtn");
     const drawerBackdrop = document.getElementById("drawerBackdrop");
     const navDrawer = document.getElementById("navDrawer");
@@ -963,17 +1027,24 @@
     const screenViews = document.querySelectorAll(".screen-view");
     const pageTitle = document.getElementById("pageTitle");
 
-    // 起動＆カメラDOM
     const startOverlay = document.getElementById("startOverlay");
     const startBtn = document.getElementById("startBtn");
     const loadingMsg = document.getElementById("loadingMsg");
     const cameraPipWrapper = document.getElementById("cameraPipWrapper");
     const webcamVideo = document.getElementById("webcamVideo");
     const overlayCanvas = document.getElementById("overlayCanvas");
+    const camLeftTag = document.getElementById("camLeftTag");
+    const camRightTag = document.getElementById("camRightTag");
     const toggleCamPowerBtn = document.getElementById("toggleCamPowerBtn");
     const toggleCamViewBtn = document.getElementById("toggleCamViewBtn");
     const autoOffInSettingsToggle = document.getElementById("autoOffInSettingsToggle");
     const settingsCamToggleBtn = document.getElementById("settingsCamToggleBtn");
+
+    // 入退出設定DOM
+    const enterDirectionSelect = document.getElementById("enterDirectionSelect");
+    const enterSoundSelect = document.getElementById("enterSoundSelect");
+    const exitSoundSelect = document.getElementById("exitSoundSelect");
+    const exitImmediateToggle = document.getElementById("exitImmediateToggle");
 
     // ステータス＆操作DOM
     const countStatBox = document.getElementById("countStatBox");
@@ -999,7 +1070,6 @@
     const coolPlusBtn = document.getElementById("coolPlusBtn");
     const cooldownDisplay = document.getElementById("cooldownDisplay");
 
-    // 効果音＆カウント音設定DOM
     const sfxVolumeSlider = document.getElementById("sfxVolumeSlider");
     const sfxVolumeVal = document.getElementById("sfxVolumeVal");
 
@@ -1015,7 +1085,8 @@
     const countVolumeVal = document.getElementById("countVolumeVal");
     const testCountSoundBtn = document.getElementById("testCountSoundBtn");
 
-    const testPlayBtn = document.getElementById("testPlayBtn");
+    const testEnterBtn = document.getElementById("testEnterBtn");
+    const testExitBtn = document.getElementById("testExitBtn");
     const stopMusicBtn = document.getElementById("stopMusicBtn");
     const resetCountBtn = document.getElementById("resetCountBtn");
     const resetDailyBtn = document.getElementById("resetDailyBtn");
@@ -1040,12 +1111,18 @@
     let dailyLimit = 10;
     let dailyPlayedCount = 0;
     let lastTriggerTime = 0;
-    let cooldownSec = 5;
+    let cooldownSec = 3;
+
+    // 人物の左右移動追跡用（Normalized X: 0.0=左端 〜 1.0=右端）
+    let trackStartX = null;
+    let trackLastX = null;
+    let trackLastSeenTime = 0;
+    let trackTriggeredThisPass = false;
 
     let sfxMasterVolume = 0.9;
     let activeSfxAudios = [];
 
-    let countDurIndex = 5; // 5秒間
+    let countDurIndex = 5;
     let countSoundDurationSec = COUNT_DURATION_STEPS[countDurIndex];
     let countBpm = 120;
     let countSoundMode = "beep";
@@ -1074,10 +1151,23 @@
         }))
       : [...DEFAULT_SONGS];
 
-    // メイン曲用プレイヤー
     const audioPlayer = new Audio();
     audioPlayer.crossOrigin = "anonymous";
     audioPlayer.preload = "auto";
+
+    // ==========================================
+    // カメラ小窓の「入 / 出」方向ラベル更新
+    // ==========================================
+    function updateCamDirectionTags() {
+      if (enterDirectionSelect.value === "left_to_right") {
+        camLeftTag.textContent = "入 ➔";
+        camRightTag.textContent = "⬅ 出";
+      } else {
+        camLeftTag.textContent = "出 ➔";
+        camRightTag.textContent = "⬅ 入";
+      }
+    }
+    enterDirectionSelect.addEventListener("change", updateCamDirectionTags);
 
     // ==========================================
     // ワンタップ効果音パッド描画＆再生
@@ -1094,17 +1184,17 @@
           <span class="sfx-name">${sfx.label}</span>
           <span class="sfx-file">${fileName}</span>
         `;
-
         btn.addEventListener("click", () => {
           triggerSfxSound(sfx, btn);
         });
-
         sfxPadGrid.appendChild(btn);
       });
     }
 
-    function triggerSfxSound(sfx, btnEl) {
-      const sfxAudio = new Audio(encodeURI(sfx.file));
+    function triggerSfxSound(sfx, btnEl = null, prefixLabel = "") {
+      // GitHub Pages上の完全パスとエンコードURLを構築（原因特定しやすくするため）
+      const resolvedUrl = new URL(sfx.file, window.location.href).href;
+      const sfxAudio = new Audio(resolvedUrl);
       sfxAudio.volume = sfxMasterVolume;
       activeSfxAudios.push(sfxAudio);
 
@@ -1115,11 +1205,12 @@
 
       sfxAudio.play().then(() => {
         if (currentPlayingIndex === -1) {
-          systemStatus.textContent = `${sfx.emoji} 効果音再生: ${sfx.label}`;
+          systemStatus.textContent = `${prefixLabel}${sfx.emoji} 再生: ${sfx.label}`;
           systemStatus.style.color = "#fbbf24";
         }
-      }).catch(() => {
-        systemStatus.textContent = `❌ 効果音エラー: 「${sfx.file}」が見つかりません`;
+      }).catch((err) => {
+        // ファイル名違い・大文字小文字・濁点違いなどを特定できるよう詳細パスを表示
+        systemStatus.textContent = `❌ 再生失敗(${err.name}): ${sfx.file} が見つからないか非対応形式です`;
         systemStatus.style.color = "#ef4444";
       });
 
@@ -1145,6 +1236,69 @@
       sfxVolumeVal.textContent = `${val}%`;
       activeSfxAudios.forEach(a => { a.volume = sfxMasterVolume; });
     });
+
+    // ==========================================
+    // 入室・退出それぞれのアクション実行
+    // ==========================================
+    function executeActionByCode(actionCode, isTest = false, prefixLabel = "") {
+      if (actionCode === "none") {
+        systemStatus.textContent = `${prefixLabel}🔇 無音設定のため再生なし`;
+        systemStatus.style.color = "#94a3b8";
+        return;
+      }
+      if (actionCode === "random") {
+        playRandomSong(isTest, prefixLabel);
+        return;
+      }
+      if (actionCode.startsWith("sfx_")) {
+        const sfxIdx = parseInt(actionCode.replace("sfx_", ""), 10);
+        const sfx = SFX_BUTTONS[sfxIdx];
+        if (sfx) {
+          const padBtn = sfxPadGrid.children[sfxIdx] || null;
+          triggerSfxSound(sfx, padBtn, prefixLabel);
+        }
+      }
+    }
+
+    function handlePersonDirectionEvent(directionType, isTest = false) {
+      if (directionType === "enter") {
+        if (isTest) {
+          executeActionByCode(enterSoundSelect.value, true, "【入室テスト】");
+          return;
+        }
+        currentCount++;
+        currentCountEl.textContent = currentCount;
+        countStatBox.classList.add("pulse");
+        setTimeout(() => countStatBox.classList.remove("pulse"), 350);
+
+        if (currentCount >= targetCount) {
+          executeActionByCode(enterSoundSelect.value, false, "➡ 入室達成: ");
+          currentCount = 0;
+          currentCountEl.textContent = "0";
+        } else {
+          systemStatus.textContent = `➡ 入室検知（${currentCount}/${targetCount}人・あと ${targetCount - currentCount} 人）`;
+          systemStatus.style.color = "#10b981";
+        }
+      } else if (directionType === "exit") {
+        if (isTest || exitImmediateToggle.checked) {
+          executeActionByCode(exitSoundSelect.value, isTest, isTest ? "【退出テスト】" : "⬅ 退出検知: ");
+        } else {
+          currentCount++;
+          currentCountEl.textContent = currentCount;
+          if (currentCount >= targetCount) {
+            executeActionByCode(exitSoundSelect.value, false, "⬅ 退出達成: ");
+            currentCount = 0;
+            currentCountEl.textContent = "0";
+          } else {
+            systemStatus.textContent = `⬅ 退出検知（あと ${targetCount - currentCount} 人）`;
+            systemStatus.style.color = "#f59e0b";
+          }
+        }
+      }
+    }
+
+    testEnterBtn.addEventListener("click", () => handlePersonDirectionEvent("enter", true));
+    testExitBtn.addEventListener("click", () => handlePersonDirectionEvent("exit", true));
 
     // ==========================================
     // パス正規化（GitHub直下ファイル名にも対応）
@@ -1202,9 +1356,12 @@
         }
 
         isCameraActive = true;
+        trackStartX = null;
+        trackLastX = null;
+        trackTriggeredThisPass = false;
         updateCameraButtonsUI();
         if (currentPlayingIndex === -1) {
-          systemStatus.textContent = "👀 人の検知を待機中...";
+          systemStatus.textContent = "👀 入退出の通過を待機中...";
           systemStatus.style.color = "#38bdf8";
         }
         detectLoop();
@@ -1524,7 +1681,7 @@
     }
 
     // ==========================================
-    // 曲リスト描画（メイン画面＆設定画面の1曲ごと編集UI）
+    // 曲リスト描画
     // ==========================================
     function renderAllSongLists(playingIdx = currentPlayingIndex) {
       saveSongs();
@@ -1602,7 +1759,6 @@
         headerDiv.appendChild(actionsDiv);
         setCard.appendChild(headerDiv);
 
-        // ① 全体の再生長さ
         const durRow = document.createElement("div");
         durRow.className = "per-song-ctrl";
         durRow.innerHTML = `<span>⏱️ 全体の再生長さ:</span>`;
@@ -1627,7 +1783,6 @@
         ));
         setCard.appendChild(durRow);
 
-        // ② フェードイン秒数
         const fiRow = document.createElement("div");
         fiRow.className = "per-song-ctrl";
         fiRow.innerHTML = `<span>📈 フェードイン（徐々に大きく）:</span>`;
@@ -1652,7 +1807,6 @@
         ));
         setCard.appendChild(fiRow);
 
-        // ③ フェードアウト秒数
         const foRow = document.createElement("div");
         foRow.className = "per-song-ctrl";
         foRow.innerHTML = `<span>📉 フェードアウト（徐々に小さく）:</span>`;
@@ -1677,7 +1831,6 @@
         ));
         setCard.appendChild(foRow);
 
-        // ④ 一番流したい区間＆それ以外の音量バランス設定ボックス
         const subBox = document.createElement("div");
         subBox.className = "sub-box";
         subBox.innerHTML = `<div class="sub-box-title">🔥 一番流したい区間（盛り上げ音量）の設定</div>`;
@@ -1835,7 +1988,7 @@
     // ==========================================
     function restoreIdleStatus() {
       if (isCameraActive) {
-        systemStatus.textContent = "👀 人の検知を待機中...";
+        systemStatus.textContent = "👀 入退出の通過を待機中...";
         systemStatus.style.color = "#38bdf8";
       } else {
         systemStatus.textContent = "📷 カメラは停止中です（「カメラ起動」で検知開始）";
@@ -1857,7 +2010,7 @@
       renderAllSongLists(-1);
     }
 
-    function playSpecificSong(idx, isTest = false) {
+    function playSpecificSong(idx, isTest = false, prefixLabel = "") {
       loadDailyStats();
 
       if (!isTest && dailyLimit > 0 && dailyPlayedCount >= dailyLimit) {
@@ -1874,13 +2027,14 @@
       lastPlayedIndex = idx;
       currentPlayingIndex = idx;
 
-      audioPlayer.src = encodeURI(targetSong.url);
+      const resolvedUrl = new URL(targetSong.url, window.location.href).href;
+      audioPlayer.src = resolvedUrl;
       audioPlayer.volume = targetSong.fadeIn > 0 ? 0 : ((targetSong.baseVolume ?? 40) / 100);
 
       audioPlayer.play().then(() => {
         countStatBox.classList.add("highlight");
         renderAllSongLists(idx);
-        systemStatus.textContent = `🎵 再生中: ${targetSong.title}`;
+        systemStatus.textContent = `${prefixLabel}🎵 再生中: ${targetSong.title}`;
         systemStatus.style.color = "#10b981";
 
         if (!isTest) {
@@ -1898,16 +2052,16 @@
             restoreIdleStatus();
           }, targetSong.duration * 1000);
         }
-      }).catch(() => {
+      }).catch((err) => {
         currentPlayingIndex = -1;
         clearCountSoundTimers();
         stopVolumeEnvelope();
-        systemStatus.textContent = `❌ 再生エラー: 「${targetSong.url}」が見つかりません（ファイル名を確認してください）`;
+        systemStatus.textContent = `❌ 再生失敗(${err.name}): 「${targetSong.url}」を確認してください`;
         systemStatus.style.color = "#ef4444";
       });
     }
 
-    function playRandomSong(isTest = false) {
+    function playRandomSong(isTest = false, prefixLabel = "") {
       if (songList.length === 0) {
         systemStatus.textContent = "⚠️ 曲が登録されていません（設定から追加してください）";
         systemStatus.style.color = "#ef4444";
@@ -1917,7 +2071,7 @@
       if (songList.length > 1 && randomIdx === lastPlayedIndex) {
         randomIdx = (randomIdx + 1) % songList.length;
       }
-      playSpecificSong(randomIdx, isTest);
+      playSpecificSong(randomIdx, isTest, prefixLabel);
     }
 
     audioPlayer.addEventListener("ended", () => {
@@ -2048,7 +2202,6 @@
       }
     });
 
-    testPlayBtn.addEventListener("click", () => playRandomSong(true));
     stopMusicBtn.addEventListener("click", () => {
       stopMusic();
       stopAllSfx();
@@ -2071,50 +2224,76 @@
     });
 
     // ==========================================
-    // 人物検知AIループ
+    // 人物検知＆左右移動方向（入室・退出）判定AIループ
     // ==========================================
     async function detectLoop() {
       if (!isCameraActive || !model) return;
 
-      if (webcamVideo.readyState >= 2) {
+      if (webcamVideo.readyState >= 2 && webcamVideo.videoWidth > 0) {
         const predictions = await model.detect(webcamVideo);
         const ctx = overlayCanvas.getContext("2d");
-        overlayCanvas.width = webcamVideo.videoWidth;
-        overlayCanvas.height = webcamVideo.videoHeight;
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        const vw = webcamVideo.videoWidth;
+        const vh = webcamVideo.videoHeight;
+        overlayCanvas.width = vw;
+        overlayCanvas.height = vh;
+        ctx.clearRect(0, 0, vw, vh);
 
         const persons = predictions.filter(p => p.class === "person" && p.score >= 0.55);
+        const now = Date.now();
 
         if (persons.length > 0) {
           cameraPipWrapper.classList.add("person-active");
 
-          persons.forEach(p => {
+          // 一番大きく映っている人物をメイン追跡対象にする
+          persons.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
+          const mainPerson = persons[0];
+
+          persons.forEach((p, idx) => {
             const [x, y, w, h] = p.bbox;
-            ctx.strokeStyle = "#10b981";
+            ctx.strokeStyle = idx === 0 ? "#10b981" : "#38bdf8";
             ctx.lineWidth = 4;
             ctx.strokeRect(x, y, w, h);
           });
 
-          const now = Date.now();
-          if (now - lastTriggerTime >= cooldownSec * 1000) {
-            lastTriggerTime = now;
-            currentCount++;
-            currentCountEl.textContent = currentCount;
+          const [mx, my, mw, mh] = mainPerson.bbox;
+          const centerXNorm = (mx + mw / 2) / vw; // 0.0(画面左端) 〜 1.0(画面右端)
 
-            countStatBox.classList.add("pulse");
-            setTimeout(() => countStatBox.classList.remove("pulse"), 350);
+          // 中心点の赤い丸を描画（左右移動を視覚確認できるようにする）
+          ctx.fillStyle = "#f59e0b";
+          ctx.beginPath();
+          ctx.arc(mx + mw / 2, my + mh / 2, 7, 0, Math.PI * 2);
+          ctx.fill();
 
-            if (currentCount >= targetCount) {
-              playRandomSong(false);
-              currentCount = 0;
-              currentCountEl.textContent = "0";
-            } else {
-              systemStatus.textContent = `🚶 人を検知しました（あと ${targetCount - currentCount} 人で再生）`;
-              systemStatus.style.color = "#f59e0b";
+          // 1.5秒以上見失っていた場合は新しい人の通過としてリセット
+          if (trackStartX === null || now - trackLastSeenTime > 1500) {
+            trackStartX = centerXNorm;
+            trackTriggeredThisPass = false;
+          }
+          trackLastX = centerXNorm;
+          trackLastSeenTime = now;
+
+          // 画面幅の 18% 以上横に移動したら「通過方向」を確定
+          const deltaX = trackLastX - trackStartX;
+          if (!trackTriggeredThisPass && Math.abs(deltaX) >= 0.18) {
+            if (now - lastTriggerTime >= cooldownSec * 1000) {
+              lastTriggerTime = now;
+              trackTriggeredThisPass = true;
+
+              const movedLeftToRight = deltaX > 0;
+              const isEnter = enterDirectionSelect.value === "left_to_right"
+                ? movedLeftToRight
+                : !movedLeftToRight;
+
+              handlePersonDirectionEvent(isEnter ? "enter" : "exit", false);
             }
           }
         } else {
           cameraPipWrapper.classList.remove("person-active");
+          if (trackStartX !== null && now - trackLastSeenTime > 1500) {
+            trackStartX = null;
+            trackLastX = null;
+            trackTriggeredThisPass = false;
+          }
         }
       }
 
@@ -2134,6 +2313,7 @@
         loadDailyStats();
         renderSfxPads();
         renderAllSongLists();
+        updateCamDirectionTags();
 
         startOverlay.style.display = "none";
         await startCameraHardware();
@@ -2148,6 +2328,7 @@
     renderSfxPads();
     renderAllSongLists();
     updateCameraButtonsUI();
+    updateCamDirectionTags();
   </script>
 </body>
 </html>
