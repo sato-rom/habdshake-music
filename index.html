@@ -791,7 +791,7 @@
   <div id="startOverlay">
     <h2 style="font-size: 1.5rem; color: #38bdf8;">👤 顔認証・入退出サウンド</h2>
     <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
-      顔認証された人の通過を確実にカウントし、<br>速歩きからゆっくり歩行まで対応します。
+      顔認証された人の通過を確実にカウントし、<br>Dropboxリンクや外部URL・GitHub音源を再生します。
     </p>
     <button id="startBtn" type="button">▶ システムを起動する</button>
     <div id="loadingMsg" style="font-size: 0.85rem; color: #f59e0b;"></div>
@@ -964,7 +964,7 @@
          画面3：一般設定画面（歩く速さ・入退出方向・カメラ・曲編集）
          ========================================== -->
     <div id="settingsScreen" class="screen-view">
-      <!-- 歩く速さ・通過感度設定（新規追加） -->
+      <!-- 歩く速さ・通過感度設定 -->
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🏃 歩く速さ・通過感度設定</div>
         <div style="font-size: 0.75rem; color: #94a3b8; line-height: 1.45;">
@@ -1155,12 +1155,12 @@
       <div class="card">
         <div style="font-size: 0.95rem; font-weight: bold; color: #38bdf8;">🎵 曲リストの追加・個別設定</div>
         <div style="font-size: 0.76rem; color: #94a3b8; line-height: 1.45;">
-          ※ GitHubメイン直下のファイル名または外部URL（https://...）を入力して曲リストに追加できます。
+          ※ GitHubメイン直下のファイル名、Firebase Storage URL、またはDropbox共有リンク（自動で再生用URLに変換されます）を入力できます。
         </div>
 
         <div class="url-input-col">
           <input type="text" id="newTitleInput" class="text-input" placeholder="表示名（省略可）" />
-          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名または外部URL（https://...）" />
+          <input type="text" id="newUrlInput" class="text-input" placeholder="GitHubファイル名・Dropbox共有リンク・外部URL" />
           <button id="addUrlBtn" type="button">＋ 曲リストに追加する</button>
         </div>
 
@@ -1326,8 +1326,8 @@
     // 歩く速さ・通過感度設定（localStorage保存）
     let savedWalkConfig = JSON.parse(localStorage.getItem("person_sound_walk_cfg_v1") || "null") || {
       preset: "normal",
-      moveRatio: 0.12,   // 画面幅の12%移動で通過判定
-      holdMs: 2500       // 見失っても2.5秒間は同一人物の移動として保持
+      moveRatio: 0.12,
+      holdMs: 2500
     };
 
     // 顔認証データ（localStorage保存）
@@ -1352,12 +1352,12 @@
       exitAction: "random"
     };
 
-    // 人物の左右移動追跡用（通過中の認証状態も保持）
+    // 人物の左右移動追跡用
     let trackStartX = null;
     let trackLastX = null;
     let trackLastSeenTime = 0;
     let trackTriggeredThisPass = false;
-    let trackVerifiedNameThisPass = null; // 今回の通過中に一度でも認証されたら名前をロック
+    let trackVerifiedNameThisPass = null;
 
     let sfxMasterVolume = 0.9;
     let activeSfxAudios = [];
@@ -1375,12 +1375,44 @@
     let lastPlayedIndex = -1;
     let currentPlayingIndex = -1;
 
-    // 曲リスト復元
+    // ==========================================
+    // パス正規化 & Dropboxリンク自動変換（dl=0/1 -> raw=1）
+    // ==========================================
+    function normalizeAudioPath(rawInput) {
+      const trimmed = (rawInput || "").trim();
+      if (!trimmed) return "";
+
+      if (/^https?:\/\//i.test(trimmed)) {
+        try {
+          const urlObj = new URL(trimmed);
+          // Dropbox共有リンクの場合は直接ストリーミング可能な raw=1 に自動変換
+          if (urlObj.hostname.includes("dropbox.com")) {
+            urlObj.searchParams.delete("dl");
+            urlObj.searchParams.set("raw", "1");
+            return urlObj.toString();
+          }
+        } catch (e) {
+          // URLパース失敗時はそのまま返す
+        }
+        return trimmed;
+      }
+
+      if (/^(\.\/|\.\.\/|\/)/i.test(trimmed)) {
+        return trimmed;
+      }
+      return `./${trimmed}`;
+    }
+
+    function isGitHubRelativePath(url) {
+      return !/^https?:\/\//i.test(url);
+    }
+
+    // 曲リスト復元（既存リスト内のDropboxリンクも自動変換）
     let rawSaved = JSON.parse(localStorage.getItem("person_sound_songs_v6") || "null");
     let songList = Array.isArray(rawSaved)
       ? rawSaved.map(s => ({
           title: s.title || "無題の曲",
-          url: s.url || "",
+          url: normalizeAudioPath(s.url || ""),
           baseVolume: typeof s.baseVolume === "number" ? s.baseVolume : (typeof s.volume === "number" ? s.volume : 40),
           peakVolume: typeof s.peakVolume === "number" ? s.peakVolume : 100,
           highlightStart: typeof s.highlightStart === "number" ? s.highlightStart : 0,
@@ -1391,8 +1423,8 @@
         }))
       : [...DEFAULT_SONGS];
 
+    // CORSブロックを防ぐため crossOrigin は指定しない
     const audioPlayer = new Audio();
-    audioPlayer.crossOrigin = "anonymous";
     audioPlayer.preload = "auto";
 
     // ==========================================
@@ -1422,14 +1454,14 @@
         const mode = btn.dataset.speed;
         savedWalkConfig.preset = mode;
         if (mode === "fast") {
-          savedWalkConfig.moveRatio = 0.08; // 8%の移動で即反応
-          savedWalkConfig.holdMs = 1500;    // 1.5秒保持
+          savedWalkConfig.moveRatio = 0.08;
+          savedWalkConfig.holdMs = 1500;
         } else if (mode === "normal") {
-          savedWalkConfig.moveRatio = 0.12; // 12%の移動
-          savedWalkConfig.holdMs = 2500;    // 2.5秒保持
+          savedWalkConfig.moveRatio = 0.12;
+          savedWalkConfig.holdMs = 2500;
         } else if (mode === "slow") {
-          savedWalkConfig.moveRatio = 0.16; // 16%の移動
-          savedWalkConfig.holdMs = 4000;    // 4.0秒保持（ゆっくり歩き・立ち止まり対応）
+          savedWalkConfig.moveRatio = 0.16;
+          savedWalkConfig.holdMs = 4000;
         }
         saveWalkConfig();
       });
@@ -1557,7 +1589,6 @@
       saveFaceSettings();
     });
 
-    // カメラ映像から顔をキャプチャして登録するボタン
     registerFaceBtn.addEventListener("click", async () => {
       if (!isCameraActive || webcamVideo.readyState < 2) {
         faceRegFeedback.textContent = "⚠️ カメラが起動していません。先にカメラをONにしてください。";
@@ -1801,22 +1832,6 @@
 
     testEnterBtn.addEventListener("click", () => handlePersonDirectionEvent("enter", true));
     testExitBtn.addEventListener("click", () => handlePersonDirectionEvent("exit", true));
-
-    // ==========================================
-    // パス正規化
-    // ==========================================
-    function normalizeAudioPath(rawInput) {
-      const trimmed = rawInput.trim();
-      if (!trimmed) return "";
-      if (/^(https?:\/\/|\.\/|\.\.\/|\/)/i.test(trimmed)) {
-        return trimmed;
-      }
-      return `./${trimmed}`;
-    }
-
-    function isGitHubRelativePath(url) {
-      return !/^https?:\/\//i.test(url);
-    }
 
     // ==========================================
     // カメラハードウェアの完全起動 / 完全停止制御
@@ -2216,6 +2231,7 @@
       songList.forEach((item, idx) => {
         const hasHighlight = item.highlightEnd > item.highlightStart;
         const isGithubLocal = isGitHubRelativePath(item.url);
+        const isDropbox = item.url.includes("dropbox.com");
 
         const mainItem = document.createElement("div");
         mainItem.className = "main-song-item" + (idx === playingIdx ? " playing" : "");
@@ -2224,6 +2240,7 @@
             <div class="main-song-title">${idx + 1}. ${escapeHtml(item.title)}</div>
             <div class="main-song-meta">
               ${isGithubLocal ? `<span class="meta-tag github">📁 GitHub直下</span>` : ""}
+              ${isDropbox ? `<span class="meta-tag github">📦 Dropbox</span>` : ""}
               <span class="meta-tag">⏱️ ${formatDurationLabel(item.duration)}</span>
               <span class="meta-tag">🔉 通常${item.baseVolume}%</span>
               ${hasHighlight ? `<span class="meta-tag accent">🔥 ${item.highlightStart}〜${item.highlightEnd}秒は${item.peakVolume}%</span>` : ""}
@@ -2547,6 +2564,8 @@
 
       if (!songList[idx]) return;
       const targetSong = songList[idx];
+      // 再生直前にもDropboxリンク等を正規化
+      targetSong.url = normalizeAudioPath(targetSong.url);
 
       stopMusic();
       lastPlayedIndex = idx;
@@ -2757,7 +2776,6 @@
 
       isRunningFaceCheck = true;
       try {
-        // 歩行中でも高速に顔を拾えるよう inputSize: 160 / scoreThreshold: 0.38 で検出
         const detection = await faceapi
           .detectSingleFace(webcamVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.38 }))
           .withFaceLandmarks()
@@ -2769,7 +2787,6 @@
           if (match) {
             lastMatchedFaceName = match.name;
             lastMatchedTime = now;
-            // 今回の通過セッション自体にも「認証済み」としてロック
             if (trackStartX !== null) {
               trackVerifiedNameThisPass = match.name;
             }
@@ -2829,22 +2846,18 @@
         const now = Date.now();
 
         if (persons.length > 0) {
-          // 1. 新しい通過セッションの開始判定
           if (trackStartX === null || now - trackLastSeenTime > savedWalkConfig.holdMs) {
             persons.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
             const initPerson = persons[0];
             trackStartX = (initPerson.bbox[0] + initPerson.bbox[2] / 2) / vw;
             trackTriggeredThisPass = false;
-            // 直前1.5秒以内に顔認証されたばかりなら引き継ぐ
             trackVerifiedNameThisPass = (lastMatchedFaceName && now - lastMatchedTime <= 1500)
               ? lastMatchedFaceName
               : null;
           }
 
-          // 2. 並列で顔認証を実行
           runFaceRecognitionStep();
 
-          // 3. 今回通過中に一度でも認証されたか、または直近で認証されていればOKとする
           const verifiedName = trackVerifiedNameThisPass || ((lastMatchedFaceName && now - lastMatchedTime <= 2500) ? lastMatchedFaceName : null);
           if (verifiedName && !trackVerifiedNameThisPass) {
             trackVerifiedNameThisPass = verifiedName;
@@ -2880,7 +2893,6 @@
           trackLastX = centerXNorm;
           trackLastSeenTime = now;
 
-          // 4. 通過判定（未認証の場合はスキップ確定せず、認証されるまで通過枠を保持する！）
           const deltaX = trackLastX - trackStartX;
           if (!trackTriggeredThisPass && Math.abs(deltaX) >= savedWalkConfig.moveRatio) {
             if (isVerifiedNow) {
@@ -2897,7 +2909,6 @@
                 handlePersonDirectionEvent(isEnter ? "enter" : "exit", false, authName);
               }
             } else {
-              // 移動距離は達しているがまだ顔認証待ちのとき（スキップロックはせず認証を待つ）
               if (currentPlayingIndex === -1) {
                 systemStatus.textContent = "🔍 通過検知中... 顔認証を確認しています";
                 systemStatus.style.color = "#f59e0b";
